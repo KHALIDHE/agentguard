@@ -78,3 +78,13 @@ One entry per decision: context, choice, reason.
 - **Choice:** turn the SDK's input validation off (`validateToolInputs(false)`) and validate in `GatewayToolHandler` with the gateway's stricter rules.
 - **Reason:** the audit log must show every attempt, including malformed ones, which are often the interesting ones.
 
+## D16. Injection detection labels and flags; permissions do the stopping
+- **Context:** tool results (documents, notes) can carry instructions aimed at the model.
+- **Choice:** every result is marked untrusted in its metadata and scanned by named, explainable rules. Free-text results are wrapped in a banner that says they are data. Flags are stored in the audit log. Quarantine (withholding flagged text) is a setting, off by default. `ContentClassifier` is an interface, so a model-based classifier can be added later.
+- **Reason:** no scanner catches every phrasing, so the design never depends on one. `PromptInjectionTest` shows the seeded attacks fail on policy, scope and approvals even when the scanner is ignored. Quarantine is off by default because withholding legitimate documents on a false positive is costly; it is the right setting for high-risk deployments.
+
+## D17. Rate limits in memory, export budget in the database
+- **Context:** limit floods per user and tool, and cap bulk exports per day.
+- **Choice:** a token bucket per (user, tool) in memory (30 per minute by default, tighter for `run_query` and `export_report`). The daily export budget (3) is counted in Oracle from `approval_request`.
+- **Reason:** the rate limit is short-lived and must be cheap; losing it on restart is harmless. The export budget must survive restarts and hold across instances. With several gateway instances, the buckets would move to Redis.
+

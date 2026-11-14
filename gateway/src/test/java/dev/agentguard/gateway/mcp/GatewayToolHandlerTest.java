@@ -32,8 +32,15 @@ class GatewayToolHandlerTest {
 
     private final UpstreamClient upstream = mock(UpstreamClient.class);
     private final PolicyEngine policies = new PolicyEngine();
+    private final dev.agentguard.gateway.limits.RateLimiter rateLimiter = mock(dev.agentguard.gateway.limits.RateLimiter.class);
     private final GatewayToolHandler handler = new GatewayToolHandler(upstream, policies,
-        mock(dev.agentguard.gateway.approval.ApprovalService.class), mock(dev.agentguard.gateway.audit.AuditLog.class));
+        mock(dev.agentguard.gateway.approval.ApprovalService.class), mock(dev.agentguard.gateway.audit.AuditLog.class),
+        rateLimiter, mock(dev.agentguard.gateway.limits.ExportBudget.class),
+        new dev.agentguard.gateway.content.UntrustedContent(new dev.agentguard.gateway.content.RuleBasedClassifier(), false));
+
+    {
+        when(rateLimiter.tryAcquire(any(), any())).thenReturn(true);
+    }
 
     {
         policies.replaceRules(List.of(new PolicyRule("nurse-search", 1, Set.of(Role.NURSE), Set.of("search_patients"),
@@ -82,7 +89,9 @@ class GatewayToolHandlerTest {
         var result = handler.handle(tool, exchangeWith(NURSE),
             new McpSchema.CallToolRequest("search_patients", Map.of("name", "a")));
 
-        assertThat(result).isSameAs(upstreamResult);
+        assertThat(result.isError()).isNotEqualTo(Boolean.TRUE);
+        assertThat(((McpSchema.TextContent) result.content().get(0)).text()).isEqualTo("[]");
+        assertThat(result.meta()).containsKey("agentguard");
     }
 
     @Test

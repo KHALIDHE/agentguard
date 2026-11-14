@@ -82,8 +82,8 @@ java -jar gateway/target/gateway-*.jar --verify-audit
 | 4 | Row-level limits, field masking, argument validation, SQL guard | done |
 | 5 | Human approval workflow | done |
 | 6 | Tamper-evident audit log | done |
-| 7 | Untrusted content handling, limits and budgets | next |
-| 8 | Demo agent | |
+| 7 | Untrusted content handling, limits and budgets | done |
+| 8 | Demo agent | next |
 | 9 | Dashboard | |
 | 10 | Evaluation harness, measured results, CI | |
 

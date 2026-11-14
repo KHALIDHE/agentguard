@@ -12,7 +12,7 @@ Each step is marked with the phase from which it works.
 | 6 | Open the audit log. Run the chain verification, change one record by hand, run it again and watch it fail. | phase 6 |
 | 7 | Show the evaluation report. | phase 10 |
 
-## Available now (phase 6)
+## Available now (phase 7)
 
 1. Start Oracle, the hospital tools and the gateway (see the README).
 2. Log in as `nurse.salma` and connect an MCP client to `http://localhost:8080/mcp` with the token.
@@ -32,3 +32,5 @@ Each step is marked with the phase from which it works.
 16. `GET /admin/audit/verify`: `chain intact`. Then, in SQL as the gateway's database user:
     `ALTER TRIGGER audit_event_append_only DISABLE; UPDATE audit_event SET reason = 'nothing happened' WHERE seq = 3; COMMIT;`
     and `GET /admin/audit/verify` again: `row 3 was modified after it was written`.
+17. As `nurse.salma`, `get_document` on "Quarterly report draft": the text comes back inside an `[UNTRUSTED CONTENT ...]` banner with the flags `ignore-instructions, fake-system-message, tool-invocation`. Then `export_report`: refused by `default-deny`. The document changed nothing.
+18. Call `list_appointments` 31 times in a minute as the same user: the 31st is refused with "Too many calls".

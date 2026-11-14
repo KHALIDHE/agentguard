@@ -35,6 +35,9 @@ import org.testcontainers.utility.DockerImageName;
     "agentguard.jwt.secret=test-only-secret-0123456789-abcdefghijklmnopqrstuvwxyz",
     "agentguard.demo.user-password=" + GatewayIntegrationTest.DEMO_PASSWORD,
     "agentguard.upstream.service-token=" + GatewayIntegrationTest.SERVICE_TOKEN,
+    "agentguard.limits.calls-per-minute=1000",
+    "agentguard.limits.per-tool.get_staff_directory=1000",
+    "agentguard.limits.per-tool.list_appointments=5",
 })
 public abstract class GatewayIntegrationTest {
 
