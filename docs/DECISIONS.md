@@ -42,3 +42,8 @@ One entry per decision: context, choice, reason.
 - **Choice:** at startup the gateway lists the upstream tools, removes every `scope*` parameter, sets `additionalProperties: false`, and publishes the result. Arguments not in the published schema are refused.
 - **Reason:** agents can never set the row-scope parameters themselves. This still trusts the upstream for the rest of the schema; phase 4 pins strict schemas inside the gateway (types, ranges, lengths), so a compromised upstream cannot widen what agents may send.
 
+## D9. Policies as data: first match wins, deny by default
+- **Context:** permissions must be readable by a non-developer, testable as a table, and impossible to forget.
+- **Choice:** rules live in `policies.yml` (role, tool, optional condition, decision, scope, mask profile, reason). The engine evaluates them by priority; the first match decides; no match means DENY with the rule id `default-deny`. Conditions are small Specification objects (`ArgumentIn`, `ArgumentGreaterThan`, `AllOf`, `AnyOf`, `Not`) built from the YAML. The parser refuses unknown keys, roles, tools, decisions and mask profiles, so a typo stops the gateway at startup.
+- **Reason:** first-match is how firewalls work and is easy to reason about (one rule decides, and the audit can name it). The rejected alternative, combining all matching rules ("most restrictive wins"), is harder to explain and to test row by row. `PolicyMatrixTest` checks all 50 role and tool pairs, so any policy edit shows up as a diff in that table.
+

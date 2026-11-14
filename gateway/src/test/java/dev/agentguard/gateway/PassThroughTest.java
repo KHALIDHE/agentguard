@@ -83,4 +83,49 @@ class PassThroughTest extends GatewayIntegrationTest {
     private static String text(McpSchema.CallToolResult result) {
         return ((McpSchema.TextContent) result.content().get(0)).text();
     }
+
+    @Test
+    void nurseIsDeniedSalariesWithTheRuleAndReason() {
+        try (McpSyncClient client = agent(login("nurse.salma"))) {
+            McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_staff_salaries", Map.of()));
+
+            assertThat(result.isError()).isTrue();
+            assertThat(text(result)).contains("salaries-everyone-else").contains("restricted to HR");
+        }
+    }
+
+    @Test
+    void hrGetsSalaries() {
+        try (McpSyncClient client = agent(login("hr.imane"))) {
+            McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_staff_salaries", Map.of("department", "CARDIO")));
+
+            assertThat(result.isError()).isNotEqualTo(Boolean.TRUE);
+            assertThat(text(result)).contains("SALARY_MAD");
+        }
+    }
+
+    @Test
+    void bulkCancellationWaitsForApproval() {
+        try (McpSyncClient client = agent(login("reception.omar"))) {
+            McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("cancel_appointments", Map.of("date", "2030-01-01")));
+
+            assertThat(text(result)).contains("Needs a human approval").contains("cancel-day-reception");
+        }
+    }
+
+    @Test
+    void adminCanReadThePolicyAndOthersCannot() {
+        var http = org.springframework.web.client.RestClient.create("http://localhost:" + port);
+
+        int asAdmin = http.get().uri("/admin/policies").header("Authorization", "Bearer " + login("admin.youssef"))
+            .exchange((req, res) -> res.getStatusCode().value());
+        int asNurse = http.get().uri("/admin/policies").header("Authorization", "Bearer " + login("nurse.salma"))
+            .exchange((req, res) -> res.getStatusCode().value());
+
+        assertThat(asAdmin).isEqualTo(200);
+        assertThat(asNurse).isEqualTo(403);
+    }
 }

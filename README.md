@@ -19,6 +19,8 @@ Core principle: **never trust the model.** Permissions are enforced in code, out
                                       └────────────────────────────────────────────────────────────────┘
 ```
 
+The active policy is [gateway/src/main/resources/policies.yml](gateway/src/main/resources/policies.yml): 14 rules, deny by default.
+
 Design, request flow, policy format and threat model: [docs/DESIGN.md](docs/DESIGN.md). Decisions and their reasons: [docs/DECISIONS.md](docs/DECISIONS.md). Demo script: [docs/DEMO.md](docs/DEMO.md).
 
 ## Stack
@@ -70,8 +72,8 @@ Tests (they start a real Oracle with Testcontainers): `./mvnw verify`.
 | 0 | Design document and threat model | done |
 | 1 | Skeleton, Docker Compose, synthetic hospital database, hospital tools MCP server | done |
 | 2 | Gateway pass-through, JWT identity on every call | done |
-| 3 | Policy engine, deny by default | next |
-| 4 | Row-level limits, field masking, argument validation, SQL guard | |
+| 3 | Policy engine, deny by default | done |
+| 4 | Row-level limits, field masking, argument validation, SQL guard | next |
 | 5 | Human approval workflow | |
 | 6 | Tamper-evident audit log | |
 | 7 | Untrusted content handling, limits and budgets | |

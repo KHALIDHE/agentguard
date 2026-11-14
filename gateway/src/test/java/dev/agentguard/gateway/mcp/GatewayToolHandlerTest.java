@@ -10,6 +10,12 @@ import static org.mockito.Mockito.when;
 
 import dev.agentguard.gateway.auth.Role;
 import dev.agentguard.gateway.auth.UserIdentity;
+import dev.agentguard.gateway.policy.Condition;
+import dev.agentguard.gateway.policy.DecisionType;
+import dev.agentguard.gateway.policy.PolicyEngine;
+import dev.agentguard.gateway.policy.PolicyRule;
+import dev.agentguard.gateway.policy.RowScope;
+import java.util.Set;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -24,7 +30,13 @@ import org.junit.jupiter.api.Test;
 class GatewayToolHandlerTest {
 
     private final UpstreamClient upstream = mock(UpstreamClient.class);
-    private final GatewayToolHandler handler = new GatewayToolHandler(upstream);
+    private final PolicyEngine policies = new PolicyEngine();
+    private final GatewayToolHandler handler = new GatewayToolHandler(upstream, policies);
+
+    {
+        policies.replaceRules(List.of(new PolicyRule("nurse-search", 1, Set.of(Role.NURSE), Set.of("search_patients"),
+            Condition.ALWAYS, DecisionType.ALLOW, RowScope.NONE, null, "test")));
+    }
 
     private final McpSchema.Tool tool = ToolRegistrar.withoutScopeParameters(McpSchema.Tool.builder()
         .name("search_patients")
@@ -72,5 +84,17 @@ class GatewayToolHandlerTest {
             new McpSchema.CallToolRequest("search_patients", Map.of("name", "a")));
 
         assertThat(result).isSameAs(upstreamResult);
+    }
+
+    @Test
+    void deniedCallNeverReachesUpstream() {
+        UserIdentity hr = new UserIdentity(5, "hr", Role.HR, null, null);
+
+        var result = handler.handle(tool, exchangeWith(hr),
+            new McpSchema.CallToolRequest("search_patients", Map.of("name", "a")));
+
+        assertThat(result.isError()).isTrue();
+        assertThat(((McpSchema.TextContent) result.content().get(0)).text()).contains("default-deny");
+        verify(upstream, never()).call(any(), anyMap());
     }
 }

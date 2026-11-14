@@ -1,5 +1,6 @@
 package dev.agentguard.gateway.mcp;
 
+import dev.agentguard.gateway.policy.KnownTools;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -47,6 +48,10 @@ public class ToolRegistrar {
         }
         try {
             for (McpSchema.Tool tool : upstream.listTools()) {
+                if (!KnownTools.ALL.contains(tool.name())) {
+                    log.warn("Upstream tool {} is not in the gateway's catalogue and stays hidden", tool.name());
+                    continue;
+                }
                 McpSchema.Tool visible = withoutScopeParameters(tool);
                 server.addTool(McpServerFeatures.SyncToolSpecification.builder()
                     .tool(visible)

@@ -12,7 +12,7 @@ Each step is marked with the phase from which it works.
 | 6 | Open the audit log. Run the chain verification, change one record by hand, run it again and watch it fail. | phase 6 |
 | 7 | Show the evaluation report. | phase 10 |
 
-## Available now (phase 2)
+## Available now (phase 3)
 
 1. Start Oracle, the hospital tools and the gateway (see the README).
 2. Log in as `nurse.salma` and connect an MCP client to `http://localhost:8080/mcp` with the token.
@@ -21,3 +21,7 @@ Each step is marked with the phase from which it works.
 5. Call `search_patients` with `{"scopeDepartment": "NEURO"}`: refused, the agent cannot set the scope itself.
 6. Connect without a token, or with a token signed by another key: refused before any tool runs.
 7. Call `http://localhost:8081/mcp` directly: 401, only the gateway holds the service token.
+8. As `nurse.salma`, call `get_staff_salaries`: refused with `Denied by policy salaries-everyone-else: Salary data is restricted to HR.`
+9. As `hr.imane`, call `get_staff_salaries`: the salaries come back.
+10. As `reception.omar`, call `cancel_appointments`: refused for now with "Needs a human approval" (the approval queue arrives in phase 5).
+11. As `admin.youssef`, `GET /admin/policies` lists the 14 rules in evaluation order.

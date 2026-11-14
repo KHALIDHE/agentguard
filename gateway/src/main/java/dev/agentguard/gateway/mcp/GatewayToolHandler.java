@@ -1,21 +1,25 @@
 package dev.agentguard.gateway.mcp;
 
 import dev.agentguard.gateway.auth.UserIdentity;
+import dev.agentguard.gateway.policy.Decision;
+import dev.agentguard.gateway.policy.DecisionType;
+import dev.agentguard.gateway.policy.PolicyEngine;
+import dev.agentguard.gateway.policy.ToolCallContext;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Every tool call from an agent arrives here. Phase 2 checks:
- *   1. a verified user identity is attached to the call;
- *   2. the arguments are only the ones the published schema declares
- *      (so an agent cannot inject scope parameters);
- * then forwards the call upstream. The policy engine, masking, approvals
- * and audit plug in here in the next phases.
+ * Every tool call from an agent arrives here:
+ *   1. a verified user identity must be attached to the call;
+ *   2. only the arguments the published schema declares are accepted;
+ *   3. the policy engine decides (deny by default);
+ * and only then is the call forwarded upstream.
  */
 @Component
 public class GatewayToolHandler {
@@ -23,9 +27,11 @@ public class GatewayToolHandler {
     private static final Logger log = LoggerFactory.getLogger(GatewayToolHandler.class);
 
     private final UpstreamClient upstream;
+    private final PolicyEngine policies;
 
-    public GatewayToolHandler(UpstreamClient upstream) {
+    public GatewayToolHandler(UpstreamClient upstream, PolicyEngine policies) {
         this.upstream = upstream;
+        this.policies = policies;
     }
 
     public McpSchema.CallToolResult handle(McpSchema.Tool tool, McpSyncServerExchange exchange,
@@ -44,15 +50,25 @@ public class GatewayToolHandler {
             }
         }
 
+        ToolCallContext call = ToolCallContext.of(identity, tool.name(), args);
+        Decision decision = policies.evaluate(call);
+        if (decision.type() == DecisionType.DENY) {
+            return refuse(tool.name(), identity, "Denied by policy " + decision.ruleId() + ": " + decision.reason(), started);
+        }
+        if (decision.type() == DecisionType.REQUIRE_APPROVAL) {
+            return refuse(tool.name(), identity,
+                "Needs a human approval (policy " + decision.ruleId() + "): " + decision.reason(), started);
+        }
+
         McpSchema.CallToolResult result = upstream.call(tool.name(), args);
-        log.info("ALLOW user={} role={} tool={} ms={}", identity.username(), identity.role(), tool.name(),
-            (System.nanoTime() - started) / 1_000_000);
+        log.info("{} user={} role={} tool={} rule={} ms={}", decision.type(), identity.username(), identity.role(),
+            tool.name(), decision.ruleId(), (System.nanoTime() - started) / 1_000_000);
         return result;
     }
 
     public static Set<String> publishedParameters(McpSchema.Tool tool) {
         if (tool.inputSchema() != null && tool.inputSchema().get("properties") instanceof Map<?, ?> props) {
-            return props.keySet().stream().map(String::valueOf).collect(java.util.stream.Collectors.toSet());
+            return props.keySet().stream().map(String::valueOf).collect(Collectors.toSet());
         }
         return Set.of();
     }

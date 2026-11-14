@@ -1,0 +1,125 @@
+# AgentGuard policy for the demo hospital.
+#
+# Rules are checked by ascending priority; the first rule that matches decides.
+# Anything not matched by a rule is DENIED (rule id "default-deny").
+#
+# decision:  ALLOW | DENY | MASK | REQUIRE_APPROVAL
+# scope:     NONE | SAME_DEPARTMENT | OWN_PATIENTS   (which rows may come back)
+# when:      { argument: x, in: [..] } | { argument: x, gt: n } | { argument: x, present: true }
+#            | { all: [..] } | { any: [..] } | { not: {..} }
+
+rules:
+
+  # --- Salaries ------------------------------------------------------------
+  - id: salaries-hr
+    priority: 10
+    roles: [HR]
+    tools: [get_staff_salaries]
+    decision: ALLOW
+    reason: "HR manages salaries."
+
+  - id: salaries-everyone-else
+    priority: 11
+    roles: [DOCTOR, NURSE, RECEPTIONIST, ADMIN]
+    tools: [get_staff_salaries]
+    decision: DENY
+    reason: "Salary data is restricted to HR."
+
+  # --- Free SQL --------------------------------------------------------------
+  - id: sql-admin
+    priority: 20
+    roles: [ADMIN]
+    tools: [run_query]
+    decision: ALLOW
+    reason: "Administrators may run read-only queries; the SQL guard checks every statement."
+
+  # --- Exports and bulk writes: a human approves first -------------------------
+  - id: export-patients-admin
+    priority: 30
+    roles: [ADMIN]
+    tools: [export_report]
+    decision: REQUIRE_APPROVAL
+    reason: "Bulk exports leave the hospital's systems and need a second person's approval."
+
+  - id: export-appointments-doctor
+    priority: 31
+    roles: [DOCTOR]
+    tools: [export_report]
+    when: { argument: reportType, in: [APPOINTMENTS] }
+    scope: SAME_DEPARTMENT
+    decision: REQUIRE_APPROVAL
+    reason: "Doctors may export their department's appointments after approval."
+
+  - id: cancel-day-reception
+    priority: 40
+    roles: [RECEPTIONIST, ADMIN]
+    tools: [cancel_appointments]
+    scope: SAME_DEPARTMENT
+    decision: REQUIRE_APPROVAL
+    reason: "Cancelling a whole day affects many patients and needs approval."
+
+  # --- Patients ----------------------------------------------------------------
+  - id: patients-doctor
+    priority: 50
+    roles: [DOCTOR]
+    tools: [search_patients, get_patient_record]
+    scope: SAME_DEPARTMENT
+    decision: ALLOW
+    reason: "Doctors see full records of patients in their department."
+
+  - id: patients-nurse
+    priority: 51
+    roles: [NURSE]
+    tools: [search_patients, get_patient_record]
+    scope: SAME_DEPARTMENT
+    decision: MASK
+    maskProfile: nurse-patient
+    reason: "Nurses see patients of their department, without national ID, address or diagnosis."
+
+  - id: patients-search-reception
+    priority: 52
+    roles: [RECEPTIONIST]
+    tools: [search_patients]
+    scope: SAME_DEPARTMENT
+    decision: MASK
+    maskProfile: reception-patient
+    reason: "Reception can find a patient by name to book an appointment, nothing more."
+
+  - id: patients-record-reception
+    priority: 53
+    roles: [RECEPTIONIST]
+    tools: [get_patient_record]
+    decision: DENY
+    reason: "Clinical records are for clinical staff."
+
+  # --- Appointments --------------------------------------------------------------
+  - id: appointments-read-clinical
+    priority: 60
+    roles: [DOCTOR, NURSE, RECEPTIONIST]
+    tools: [list_appointments]
+    scope: SAME_DEPARTMENT
+    decision: ALLOW
+    reason: "Department staff see their department's schedule."
+
+  - id: appointments-update
+    priority: 61
+    roles: [DOCTOR, RECEPTIONIST]
+    tools: [update_appointment]
+    scope: SAME_DEPARTMENT
+    decision: ALLOW
+    reason: "Doctors and reception may change one appointment in their department."
+
+  # --- Shared, non-sensitive ---------------------------------------------------------
+  - id: directory-everyone
+    priority: 90
+    roles: [DOCTOR, NURSE, RECEPTIONIST, HR, ADMIN]
+    tools: [get_staff_directory]
+    decision: ALLOW
+    reason: "The staff directory is internal but not sensitive."
+
+  - id: documents-everyone
+    priority: 91
+    roles: [DOCTOR, NURSE, RECEPTIONIST, HR, ADMIN]
+    tools: [get_document]
+    decision: ALLOW
+    reason: "Internal documents are readable by staff; their content is treated as untrusted."
