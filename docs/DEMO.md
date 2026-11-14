@@ -12,7 +12,7 @@ Each step is marked with the phase from which it works.
 | 6 | Open the audit log. Run the chain verification, change one record by hand, run it again and watch it fail. | phase 6 |
 | 7 | Show the evaluation report. | phase 10 |
 
-## Available now (phase 5)
+## Available now (phase 6)
 
 1. Start Oracle, the hospital tools and the gateway (see the README).
 2. Log in as `nurse.salma` and connect an MCP client to `http://localhost:8080/mcp` with the token.
@@ -28,3 +28,7 @@ Each step is marked with the phase from which it works.
 12. As `nurse.salma` (CARDIO), call `get_patient_record` for a NEURO patient: `{"found": false}`. The department filter is in the SQL.
 13. Same nurse, a CARDIO patient: no `ADDRESS`, no `DIAGNOSIS`, `NATIONAL_ID` shown as `******42`. As `dr.amrani`, the same patient comes back in full.
 14. As `admin.youssef`, `run_query` with `SELECT salary_mad FROM staff`: `SQL refused: column SALARY_MAD is not allowed`. `DELETE FROM patient`: `only SELECT is allowed`.
+15. As `admin.youssef`, `GET /admin/audit?limit=20`: every call above is there, with its rule and reason.
+16. `GET /admin/audit/verify`: `chain intact`. Then, in SQL as the gateway's database user:
+    `ALTER TRIGGER audit_event_append_only DISABLE; UPDATE audit_event SET reason = 'nothing happened' WHERE seq = 3; COMMIT;`
+    and `GET /admin/audit/verify` again: `row 3 was modified after it was written`.

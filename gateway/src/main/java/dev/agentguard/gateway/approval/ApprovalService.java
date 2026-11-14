@@ -1,5 +1,7 @@
 package dev.agentguard.gateway.approval;
 
+import dev.agentguard.gateway.audit.AuditEntry;
+import dev.agentguard.gateway.audit.AuditLog;
 import dev.agentguard.gateway.auth.UserIdentity;
 import dev.agentguard.gateway.mcp.ResultMasking;
 import dev.agentguard.gateway.mcp.UpstreamClient;
@@ -45,14 +47,22 @@ public class ApprovalService {
     private final TransactionTemplate tx;
     private final Duration timeout;
     private final Clock clock;
+    private final AuditLog audit;
 
     public ApprovalService(ApprovalRepository approvals, UpstreamClient upstream, PlatformTransactionManager txManager,
-                           @Value("${agentguard.approvals.timeout:PT10M}") Duration timeout, Clock clock) {
+                           @Value("${agentguard.approvals.timeout:PT10M}") Duration timeout, Clock clock,
+                           AuditLog audit) {
         this.approvals = approvals;
         this.upstream = upstream;
         this.tx = new TransactionTemplate(txManager);
         this.timeout = timeout;
         this.clock = clock;
+        this.audit = audit;
+    }
+
+    private void audit(ApprovalRequest r, String who, String decision, String reason) {
+        audit.record(new AuditEntry(AuditEntry.APPROVAL, null, who, null, r.getTool(), r.getArgsJson(),
+            decision, r.getRuleId(), reason, null, null, r.getId()));
     }
 
     public ApprovalRequest create(UserIdentity requester, String tool, Map<String, Object> scopedArgs, Decision decision) {
@@ -75,13 +85,23 @@ public class ApprovalService {
 
     public ApprovalRequest refuse(long id, String approver, String note) {
         decideOrExplain(id, ApprovalStatus.REFUSED, approver, note);
-        return approvals.findById(id).orElseThrow();
+        ApprovalRequest r = approvals.findById(id).orElseThrow();
+        audit(r, approver, "REFUSED", note == null ? "Refused by " + approver : note);
+        return r;
     }
 
     /** Approves, then executes the stored call. Returns the request in its final state. */
     public ApprovalRequest approve(long id, String approver, String note) {
         decideOrExplain(id, ApprovalStatus.APPROVED, approver, note);
-        return execute(id);
+        audit(approvals.findById(id).orElseThrow(), approver, "APPROVED", note == null ? "Approved by " + approver : note);
+        ApprovalRequest done = execute(id);
+        audit(done, "gateway", done.getStatus().name(),
+            done.getStatus() == ApprovalStatus.EXECUTED ? "Executed the stored call" : truncate(done.getResultJson()));
+        return done;
+    }
+
+    private static String truncate(String s) {
+        return s == null || s.length() <= 500 ? s : s.substring(0, 497) + "...";
     }
 
     private void decideOrExplain(long id, ApprovalStatus to, String approver, String note) {
@@ -144,7 +164,11 @@ public class ApprovalService {
     /** No answer within the time limit means refused. */
     @Scheduled(fixedDelayString = "${agentguard.approvals.expiry-check:PT30S}")
     public int expirePending() {
-        Integer expired = tx.execute(s -> approvals.expirePending(clock.instant()));
+        Instant now = clock.instant();
+        List<ApprovalRequest> due = approvals.findByStatusOrderByCreatedAtAsc(ApprovalStatus.PENDING).stream()
+            .filter(r -> !r.getExpiresAt().isAfter(now)).toList();
+        Integer expired = tx.execute(s -> approvals.expirePending(now));
+        due.forEach(r -> audit(r, "gateway", "EXPIRED", "No decision before " + r.getExpiresAt()));
         if (expired != null && expired > 0) {
             log.info("{} approval request(s) expired without a decision", expired);
         }

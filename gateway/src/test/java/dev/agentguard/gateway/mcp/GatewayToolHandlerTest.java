@@ -33,7 +33,7 @@ class GatewayToolHandlerTest {
     private final UpstreamClient upstream = mock(UpstreamClient.class);
     private final PolicyEngine policies = new PolicyEngine();
     private final GatewayToolHandler handler = new GatewayToolHandler(upstream, policies,
-        mock(dev.agentguard.gateway.approval.ApprovalService.class));
+        mock(dev.agentguard.gateway.approval.ApprovalService.class), mock(dev.agentguard.gateway.audit.AuditLog.class));
 
     {
         policies.replaceRules(List.of(new PolicyRule("nurse-search", 1, Set.of(Role.NURSE), Set.of("search_patients"),

@@ -2,6 +2,9 @@ package dev.agentguard.gateway.mcp;
 
 import dev.agentguard.gateway.approval.ApprovalRequest;
 import dev.agentguard.gateway.approval.ApprovalService;
+import dev.agentguard.gateway.audit.AuditArguments;
+import dev.agentguard.gateway.audit.AuditEntry;
+import dev.agentguard.gateway.audit.AuditLog;
 import dev.agentguard.gateway.auth.UserIdentity;
 import dev.agentguard.gateway.policy.Decision;
 import dev.agentguard.gateway.policy.DecisionType;
@@ -19,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +40,8 @@ import org.springframework.stereotype.Component;
  *   6. upstream     the call is forwarded with the service token
  *   7. masking      sensitive fields are removed before the agent sees them
  *
+ * Whatever the exit point, exactly one audit record is written.
+ *
  * Any step can stop the call. A fixed sequence is easier to read and to audit
  * than a configurable chain, and the order matters: no step that touches data
  * runs before the identity, validation and policy steps have passed.
@@ -49,32 +55,54 @@ public class GatewayToolHandler {
     private final UpstreamClient upstream;
     private final PolicyEngine policies;
     private final ApprovalService approvals;
+    private final AuditLog audit;
 
-    public GatewayToolHandler(UpstreamClient upstream, PolicyEngine policies, ApprovalService approvals) {
+    public GatewayToolHandler(UpstreamClient upstream, PolicyEngine policies, ApprovalService approvals,
+                              AuditLog audit) {
         this.upstream = upstream;
         this.policies = policies;
         this.approvals = approvals;
+        this.audit = audit;
+    }
+
+    /** What is known about the call so far; filled in step by step for the audit record. */
+    private static final class Call {
+        final String requestId = UUID.randomUUID().toString();
+        final long started = System.nanoTime();
+        final String tool;
+        final Map<String, Object> rawArgs;
+        UserIdentity identity;
+
+        Call(String tool, Map<String, Object> rawArgs) {
+            this.tool = tool;
+            this.rawArgs = rawArgs;
+        }
+
+        long elapsedMs() {
+            return (System.nanoTime() - started) / 1_000_000;
+        }
     }
 
     public McpSchema.CallToolResult handle(McpSchema.Tool tool, McpSyncServerExchange exchange,
                                            McpSchema.CallToolRequest request) {
-        long started = System.nanoTime();
+        Call call = new Call(tool.name(), request.arguments() == null ? Map.of() : request.arguments());
 
         // 1. identity
         Object raw = exchange.transportContext().get(McpServerConfig.IDENTITY);
         if (!(raw instanceof UserIdentity identity)) {
-            return refuse(tool.name(), null, "No verified user identity on this call", started);
+            return refuse(call, "identity", "No verified user identity on this call");
         }
+        call.identity = identity;
 
         // 2. validation
         Optional<ToolSchema> schema = ToolCatalog.find(tool.name());
         if (schema.isEmpty()) {
-            return refuse(tool.name(), identity, "Unknown tool", started);
+            return refuse(call, "validation", "Unknown tool");
         }
-        Map<String, Object> args = new HashMap<>(request.arguments() == null ? Map.of() : request.arguments());
+        Map<String, Object> args = new HashMap<>(call.rawArgs);
         Optional<String> invalid = schema.get().validate(args);
         if (invalid.isPresent()) {
-            return refuse(tool.name(), identity, invalid.get(), started);
+            return refuse(call, "validation", invalid.get());
         }
 
         // 3. SQL guard
@@ -82,7 +110,7 @@ public class GatewayToolHandler {
             int maxRows = args.get("maxRows") instanceof Number n ? n.intValue() : DEFAULT_SQL_ROWS;
             SqlGuard.Result sql = SqlGuard.check((String) args.get("sql"), maxRows);
             if (!sql.accepted()) {
-                return refuse(tool.name(), identity, "SQL refused: " + sql.reason(), started);
+                return refuse(call, "sql-guard", "SQL refused: " + sql.reason());
             }
             args.put("sql", sql.rewrittenSql());
         }
@@ -90,7 +118,7 @@ public class GatewayToolHandler {
         // 4. policy
         Decision decision = policies.evaluate(ToolCallContext.of(identity, tool.name(), args));
         if (decision.type() == DecisionType.DENY) {
-            return refuse(tool.name(), identity, "Denied by policy " + decision.ruleId() + ": " + decision.reason(), started);
+            return refuse(call, decision.ruleId(), "Denied by policy " + decision.ruleId() + ": " + decision.reason());
         }
 
         // 5. row scope
@@ -98,14 +126,13 @@ public class GatewayToolHandler {
         try {
             upstreamArgs = ScopeResolver.apply(decision.scope(), identity, schema.get(), args);
         } catch (ScopeResolver.ScopeException e) {
-            return refuse(tool.name(), identity, e.getMessage(), started);
+            return refuse(call, decision.ruleId(), e.getMessage());
         }
 
         // 5b. hold for a human: the scoped call is stored and executed later by the gateway itself
         if (decision.type() == DecisionType.REQUIRE_APPROVAL) {
             ApprovalRequest pending = approvals.create(identity, tool.name(), upstreamArgs, decision);
-            log.info("PENDING user={} tool={} rule={} approval={}", identity.username(), tool.name(),
-                decision.ruleId(), pending.getId());
+            record(call, "PENDING", decision.ruleId(), decision.reason(), pending.getId());
             return McpSchema.CallToolResult.builder()
                 .addTextContent("PENDING_APPROVAL: request " + pending.getId() + " is waiting for a human decision. "
                     + "Reason (policy " + decision.ruleId() + "): " + decision.reason() + " "
@@ -115,16 +142,43 @@ public class GatewayToolHandler {
         }
 
         // 6. upstream
-        McpSchema.CallToolResult result = upstream.call(tool.name(), upstreamArgs);
+        McpSchema.CallToolResult result;
+        try {
+            result = upstream.call(tool.name(), upstreamArgs);
+        } catch (RuntimeException e) {
+            record(call, "ERROR", decision.ruleId(), "Upstream call failed: " + e.getMessage(), null);
+            return McpSchema.CallToolResult.builder().isError(true)
+                .addTextContent("The tool is not available right now").build();
+        }
 
         // 7. masking
         if (decision.maskProfile() != null && !Boolean.TRUE.equals(result.isError())) {
             result = ResultMasking.mask(result, decision.maskProfile());
         }
 
-        log.info("{} user={} role={} tool={} rule={} ms={}", decision.type(), identity.username(), identity.role(),
-            tool.name(), decision.ruleId(), (System.nanoTime() - started) / 1_000_000);
+        record(call, decision.type().name(), decision.ruleId(), decision.reason(), null);
         return result;
+    }
+
+    private McpSchema.CallToolResult refuse(Call call, String ruleId, String reason) {
+        record(call, "DENY", ruleId, reason, null);
+        return McpSchema.CallToolResult.builder()
+            .isError(true)
+            .content(List.of(new McpSchema.TextContent("Refused by AgentGuard: " + reason)))
+            .build();
+    }
+
+    private void record(Call call, String decision, String ruleId, String reason, Long approvalId) {
+        UserIdentity who = call.identity;
+        long ms = call.elapsedMs();
+        log.info("{} user={} tool={} rule={} ms={}", decision, who == null ? "-" : who.username(), call.tool, ruleId, ms);
+        audit.record(new AuditEntry(AuditEntry.TOOL_CALL, call.requestId,
+            who == null ? "-" : who.username(), who == null ? null : who.role().name(), call.tool,
+            AuditArguments.summarize(call.rawArgs), decision, ruleId, truncate(reason), ms, null, approvalId));
+    }
+
+    private static String truncate(String s) {
+        return s == null || s.length() <= 500 ? s : s.substring(0, 497) + "...";
     }
 
     public static Set<String> publishedParameters(McpSchema.Tool tool) {
@@ -132,14 +186,5 @@ public class GatewayToolHandler {
             return props.keySet().stream().map(String::valueOf).collect(Collectors.toSet());
         }
         return Set.of();
-    }
-
-    private static McpSchema.CallToolResult refuse(String tool, UserIdentity identity, String reason, long started) {
-        log.info("DENY user={} tool={} reason=\"{}\" ms={}",
-            identity == null ? "-" : identity.username(), tool, reason, (System.nanoTime() - started) / 1_000_000);
-        return McpSchema.CallToolResult.builder()
-            .isError(true)
-            .content(List.of(new McpSchema.TextContent("Refused by AgentGuard: " + reason)))
-            .build();
     }
 }

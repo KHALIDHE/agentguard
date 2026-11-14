@@ -71,7 +71,7 @@ public final class FieldMasker {
     }
 
     /** Keeps the last two characters: "ZZ100042" becomes "******42". */
-    static String partial(String value) {
+    public static String partial(String value) {
         if (value.length() <= 2) {
             return "**";
         }

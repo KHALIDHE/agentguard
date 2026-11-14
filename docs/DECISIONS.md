@@ -68,3 +68,13 @@ One entry per decision: context, choice, reason.
 - **Choice:** the scoped call is stored with a SHA-256 of (requester, tool, canonical arguments). Deciding is one `UPDATE ... WHERE status = 'PENDING' AND expires_at > now AND requester_name <> approver`; whoever changes the row wins, and everyone else gets 409. After approval the gateway executes the stored call once, re-checking the hash first. A CHECK constraint also forbids `decided_by = requester_name`. Pending requests expire after `agentguard.approvals.timeout` (10 minutes by default) and count as refused.
 - **Reason:** the agent never holds anything it could replay with different arguments. The rejected alternative, a one-time approval token returned to the agent, would move the trust back to the client. A single conditional UPDATE is atomic in Oracle without holding a lock between a read and a write.
 
+## D14. Our own hash chain, guarded by a trigger
+- **Context:** every decision must be recorded, and a later change or deletion must be detectable.
+- **Choice:** `audit_event` rows carry `prev_hash` and `hash = SHA-256(prev_hash || canonical row)`. Writes lock the single-row `audit_head` with `SELECT ... FOR UPDATE` and run in their own transaction. A statement trigger blocks UPDATE and DELETE. Verification (`/admin/audit/verify`, `--verify-audit`) reports the first broken row, gaps in the sequence, and missing rows at the end.
+- **Reason:** the trigger stops mistakes; the chain catches someone who bypasses the trigger. The rejected alternative was Oracle 23ai blockchain tables, which do this natively. They are stronger against a DBA, but the logic is hidden and Oracle-specific; ours is explainable and testable. Limit: a DBA who rewrites every later row and `audit_head` can hide an edit, unless the latest hash is also published somewhere else.
+
+## D15. One validation path, so every refusal is audited
+- **Context:** the MCP SDK can validate arguments against the published schema before a handler runs. Those refusals never reached the gateway, so they were not audited.
+- **Choice:** turn the SDK's input validation off (`validateToolInputs(false)`) and validate in `GatewayToolHandler` with the gateway's stricter rules.
+- **Reason:** the audit log must show every attempt, including malformed ones, which are often the interesting ones.
+

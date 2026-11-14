@@ -62,11 +62,9 @@ class PassThroughTest extends GatewayIntegrationTest {
             McpSchema.CallToolResult result = client.callTool(new McpSchema.CallToolRequest(
                 "search_patients", Map.of("name", "a", "scopeDepartment", "NEURO")));
 
-            // Refused twice over: the MCP SDK validates against the published schema
-            // (additionalProperties: false), and GatewayToolHandler checks again
-            // (see GatewayToolHandlerTest). Either way the call never reaches upstream.
+            // GatewayToolHandler refuses it (and audits the refusal) before any upstream call.
             assertThat(result.isError()).isTrue();
-            assertThat(text(result)).contains("scopeDepartment");
+            assertThat(text(result)).startsWith("Refused by AgentGuard").contains("scopeDepartment");
         }
     }
 

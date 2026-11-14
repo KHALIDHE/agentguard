@@ -65,6 +65,12 @@ Everything in containers: `docker compose --profile full up --build`.
 
 Tests (they start a real Oracle with Testcontainers): `./mvnw verify`.
 
+Verify the audit chain from the command line (exit code 0 if intact, 1 if not):
+
+```bash
+java -jar gateway/target/gateway-*.jar --verify-audit
+```
+
 ## Status
 
 | Phase | Content | State |
@@ -75,8 +81,8 @@ Tests (they start a real Oracle with Testcontainers): `./mvnw verify`.
 | 3 | Policy engine, deny by default | done |
 | 4 | Row-level limits, field masking, argument validation, SQL guard | done |
 | 5 | Human approval workflow | done |
-| 6 | Tamper-evident audit log | next |
-| 7 | Untrusted content handling, limits and budgets | |
+| 6 | Tamper-evident audit log | done |
+| 7 | Untrusted content handling, limits and budgets | next |
 | 8 | Demo agent | |
 | 9 | Dashboard | |
 | 10 | Evaluation harness, measured results, CI | |
