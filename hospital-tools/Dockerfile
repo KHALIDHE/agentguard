@@ -11,6 +11,6 @@ RUN ./mvnw -B -q -pl hospital-tools -DskipTests package
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 RUN useradd --system --uid 1001 app
-COPY --from=build /src/hospital-tools/target/*.jar app.jar
+COPY --from=build /src/hospital-tools/target/*-exec.jar app.jar
 USER app
 ENTRYPOINT ["java", "-jar", "app.jar"]

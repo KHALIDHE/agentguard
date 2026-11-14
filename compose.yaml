@@ -28,6 +28,7 @@ services:
     environment:
       DB_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
       HOSPITAL_DB_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital}
+      HOSPITAL_SERVICE_TOKEN: ${HOSPITAL_SERVICE_TOKEN:?set HOSPITAL_SERVICE_TOKEN in .env}
     ports:
       - "8081:8081"
     depends_on:
@@ -43,6 +44,9 @@ services:
       DB_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
       AGENTGUARD_DB_PASSWORD: ${AGENTGUARD_DB_PASSWORD:-agentguard}
       HOSPITAL_TOOLS_URL: http://hospital-tools:8081
+      HOSPITAL_SERVICE_TOKEN: ${HOSPITAL_SERVICE_TOKEN:?set HOSPITAL_SERVICE_TOKEN in .env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-}
     ports:
       - "8080:8080"
     depends_on:

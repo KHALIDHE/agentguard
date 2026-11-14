@@ -1,6 +1,7 @@
 package dev.agentguard.hospitaltools;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
@@ -19,8 +20,11 @@ import org.springframework.context.annotation.Import;
  * Streamable HTTP. Proves the tools are published and callable.
  */
 @Import(TestcontainersConfiguration.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+                properties = {"spring.config.name=hospital-tools", "hospital.service-token=" + HospitalToolsMcpTest.TOKEN})
 class HospitalToolsMcpTest {
+
+    static final String TOKEN = "test-service-token";
 
     static final Set<String> EXPECTED_TOOLS = Set.of(
         "search_patients", "get_patient_record", "list_appointments", "update_appointment",
@@ -31,12 +35,27 @@ class HospitalToolsMcpTest {
     int port;
 
     private McpSyncClient client() {
+        return client(TOKEN);
+    }
+
+    private McpSyncClient client(String token) {
         var transport = HttpClientStreamableHttpTransport.builder("http://localhost:" + port)
             .endpoint("/mcp")
+            .httpRequestCustomizer((request, method, uri, body, context) -> {
+                if (token != null) {
+                    request.header("Authorization", "Bearer " + token);
+                }
+            })
             .build();
         McpSyncClient client = McpClient.sync(transport).build();
         client.initialize();
         return client;
+    }
+
+    @Test
+    void refusesCallsWithoutTheServiceToken() {
+        assertThatThrownBy(() -> client(null)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> client("wrong-token")).isInstanceOf(RuntimeException.class);
     }
 
     @Test

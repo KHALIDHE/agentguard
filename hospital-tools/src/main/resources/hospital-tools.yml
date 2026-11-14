@@ -7,6 +7,9 @@ spring:
     username: ${HOSPITAL_DB_USER:hospital}
     password: ${HOSPITAL_DB_PASSWORD:hospital}
 
+  flyway:
+    locations: classpath:db/hospital
+
   jpa:
     open-in-view: false
     hibernate:
@@ -25,6 +28,10 @@ spring:
         protocol: STREAMABLE
         streamable-http:
           mcp-endpoint: /mcp
+
+hospital:
+  # Shared secret the gateway sends on every call. Empty means every call is refused.
+  service-token: ${HOSPITAL_SERVICE_TOKEN:}
 
 server:
   port: 8081

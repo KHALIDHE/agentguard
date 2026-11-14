@@ -7,6 +7,9 @@ spring:
     username: ${AGENTGUARD_DB_USER:agentguard}
     password: ${AGENTGUARD_DB_PASSWORD:agentguard}
 
+  flyway:
+    locations: classpath:db/gateway
+
   jpa:
     open-in-view: false
     hibernate:
@@ -25,12 +28,23 @@ spring:
         protocol: STREAMABLE
         streamable-http:
           mcp-endpoint: /mcp
+        capabilities:
+          tool: true
       client:
-        enabled: false   # switched on in phase 2, when the gateway forwards to hospital-tools
+        # The gateway builds its own upstream client (UpstreamClient) so it
+        # controls the service token and reconnects; Spring AI's is not used.
+        enabled: false
 
 agentguard:
+  jwt:
+    secret: ${JWT_SECRET:}
+    ttl: 1h
+    issuer: agentguard
+  demo:
+    user-password: ${DEMO_USER_PASSWORD:}
   upstream:
     hospital-tools-url: ${HOSPITAL_TOOLS_URL:http://localhost:8081}
+    service-token: ${HOSPITAL_SERVICE_TOKEN:}
 
 server:
   port: 8080

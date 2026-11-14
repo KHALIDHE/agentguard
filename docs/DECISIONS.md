@@ -26,3 +26,19 @@ One entry per decision: context, choice, reason.
 - **Context:** an approval must not be reusable for a different action.
 - **Choice:** store the exact call with its hash, and on approval the gateway runs it once.
 - **Reason:** the agent never gets a reusable "approval token", so there's nothing to replay or tamper with.
+
+## D6. The identity travels in the MCP transport context, not a thread-local
+- **Context:** MCP tool handlers do not run on the HTTP request thread, so Spring Security's `SecurityContextHolder` is empty inside them.
+- **Choice:** a custom `WebMvcStreamableServerTransportProvider` with a context extractor. While the request is being handled, after the JWT filter, it copies the verified `UserIdentity` into the `McpTransportContext`, and the handler reads it from the exchange.
+- **Reason:** the identity is passed explicitly with each call. Nothing depends on which thread runs the handler, and a call without an identity is refused instead of running as nobody.
+
+## D7. A service token between the gateway and the tools
+- **Context:** if an agent could reach the hospital tools directly, the gateway would be optional.
+- **Choice:** the tools service refuses any MCP request without `Authorization: Bearer <HOSPITAL_SERVICE_TOKEN>`, compared in constant time, and refuses everything when the token is not configured. Only the gateway holds the token.
+- **Reason:** the gateway becomes the only door. In production this would be mTLS or a private network as well; the shared token keeps the demo simple and testable.
+
+## D8. Phase 2 republishes the upstream schemas, minus scope parameters
+- **Context:** the gateway must offer the same tools as the upstream server.
+- **Choice:** at startup the gateway lists the upstream tools, removes every `scope*` parameter, sets `additionalProperties: false`, and publishes the result. Arguments not in the published schema are refused.
+- **Reason:** agents can never set the row-scope parameters themselves. This still trusts the upstream for the rest of the schema; phase 4 pins strict schemas inside the gateway (types, ranges, lengths), so a compromised upstream cannot widen what agents may send.
+

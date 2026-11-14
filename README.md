@@ -44,7 +44,20 @@ docker compose up -d oracle   # first start takes about a minute
 ./mvnw -pl hospital-tools spring-boot:run
 ```
 
-Then `GET http://localhost:8081/actuator/health`, and the MCP endpoint is `http://localhost:8081/mcp`.
+In a second terminal, the gateway:
+
+```bash
+./mvnw -pl gateway spring-boot:run
+```
+
+Get a token for a demo user (`dr.amrani`, `nurse.salma`, `reception.omar`, `hr.imane`, `admin.youssef`, ...):
+
+```bash
+curl -X POST localhost:8080/auth/login -H 'Content-Type: application/json'      -d '{"username":"nurse.salma","password":"<DEMO_USER_PASSWORD>"}'
+```
+
+Then point any MCP client at `http://localhost:8080/mcp` with `Authorization: Bearer <token>`.
+The hospital tools on port 8081 refuse every call that does not come from the gateway.
 
 Everything in containers: `docker compose --profile full up --build`.
 
@@ -56,8 +69,8 @@ Tests (they start a real Oracle with Testcontainers): `./mvnw verify`.
 |---|---|---|
 | 0 | Design document and threat model | done |
 | 1 | Skeleton, Docker Compose, synthetic hospital database, hospital tools MCP server | done |
-| 2 | Gateway pass-through, JWT identity on every call | next |
-| 3 | Policy engine, deny by default | |
+| 2 | Gateway pass-through, JWT identity on every call | done |
+| 3 | Policy engine, deny by default | next |
 | 4 | Row-level limits, field masking, argument validation, SQL guard | |
 | 5 | Human approval workflow | |
 | 6 | Tamper-evident audit log | |
