@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: agentguard-gateway
+
+  datasource:
+    url: ${DB_URL:jdbc:oracle:thin:@//localhost:1521/FREEPDB1}
+    username: ${AGENTGUARD_DB_USER:agentguard}
+    password: ${AGENTGUARD_DB_PASSWORD:agentguard}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+  threads:
+    virtual:
+      enabled: true
+
+  ai:
+    mcp:
+      server:
+        name: agentguard
+        version: 0.1.0
+        type: SYNC
+        protocol: STREAMABLE
+        streamable-http:
+          mcp-endpoint: /mcp
+      client:
+        enabled: false   # switched on in phase 2, when the gateway forwards to hospital-tools
+
+agentguard:
+  upstream:
+    hospital-tools-url: ${HOSPITAL_TOOLS_URL:http://localhost:8081}
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-components: always

@@ -1,0 +1,70 @@
+# `docker compose up -d oracle` for development (run the Java modules from your IDE or mvnw).
+# `docker compose --profile full up --build` starts the whole platform.
+
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim-faststart
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_SYS_PASSWORD:-OracleSys123}
+      HOSPITAL_DB_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital}
+      AGENTGUARD_DB_PASSWORD: ${AGENTGUARD_DB_PASSWORD:-agentguard}
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      - ./infra/oracle-init:/container-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  hospital-tools:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: hospital-tools/Dockerfile
+    environment:
+      DB_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      HOSPITAL_DB_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital}
+    ports:
+      - "8081:8081"
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+  gateway:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    environment:
+      DB_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      AGENTGUARD_DB_PASSWORD: ${AGENTGUARD_DB_PASSWORD:-agentguard}
+      HOSPITAL_TOOLS_URL: http://hospital-tools:8081
+    ports:
+      - "8080:8080"
+    depends_on:
+      oracle:
+        condition: service_healthy
+      hospital-tools:
+        condition: service_started
+
+  demo-agent:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: demo-agent/Dockerfile
+    environment:
+      AI_PROVIDER: ${AI_PROVIDER:-ollama}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GATEWAY_URL: http://gateway:8080
+    ports:
+      - "8082:8082"
+    depends_on:
+      - gateway
+
+volumes:
+  oracle-data:
