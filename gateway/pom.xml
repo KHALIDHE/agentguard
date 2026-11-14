@@ -68,6 +68,12 @@
 			<artifactId>flyway-database-oracle</artifactId>
 		</dependency>
 		<dependency>
+			<!-- Parses SQL sent to run_query so the SQL guard reasons about structure, not text. -->
+			<groupId>com.github.jsqlparser</groupId>
+			<artifactId>jsqlparser</artifactId>
+			<version>5.4</version>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-starter-mcp-client</artifactId>
 		</dependency>

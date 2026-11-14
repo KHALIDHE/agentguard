@@ -15,6 +15,7 @@ import dev.agentguard.gateway.policy.DecisionType;
 import dev.agentguard.gateway.policy.PolicyEngine;
 import dev.agentguard.gateway.policy.PolicyRule;
 import dev.agentguard.gateway.policy.RowScope;
+import dev.agentguard.gateway.tools.ToolCatalog;
 import java.util.Set;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
@@ -35,15 +36,12 @@ class GatewayToolHandlerTest {
 
     {
         policies.replaceRules(List.of(new PolicyRule("nurse-search", 1, Set.of(Role.NURSE), Set.of("search_patients"),
-            Condition.ALWAYS, DecisionType.ALLOW, RowScope.NONE, null, "test")));
+            Condition.ALWAYS, DecisionType.ALLOW, RowScope.SAME_DEPARTMENT, null, "test")));
     }
 
-    private final McpSchema.Tool tool = ToolRegistrar.withoutScopeParameters(McpSchema.Tool.builder()
-        .name("search_patients")
-        .inputSchema(Map.of("type", "object",
-            "properties", Map.of("name", Map.of("type", "string"), "scopeDepartment", Map.of("type", "string")),
-            "required", List.of()))
-        .build());
+    private final McpSchema.Tool tool = ToolRegistrar.published(
+        McpSchema.Tool.builder().name("search_patients").inputSchema(Map.of("type", "object")).build(),
+        ToolCatalog.find("search_patients").orElseThrow());
 
     private static McpSyncServerExchange exchangeWith(Object identity) {
         McpSyncServerExchange exchange = mock(McpSyncServerExchange.class);
@@ -76,9 +74,9 @@ class GatewayToolHandlerTest {
     }
 
     @Test
-    void allowedArgumentsAreForwardedUnchanged() {
+    void allowedCallIsForwardedWithTheScopeFromTheIdentity() {
         McpSchema.CallToolResult upstreamResult = McpSchema.CallToolResult.builder().addTextContent("[]").build();
-        when(upstream.call("search_patients", Map.of("name", "a"))).thenReturn(upstreamResult);
+        when(upstream.call("search_patients", Map.of("name", "a", "scopeDepartment", "CARDIO"))).thenReturn(upstreamResult);
 
         var result = handler.handle(tool, exchangeWith(NURSE),
             new McpSchema.CallToolRequest("search_patients", Map.of("name", "a")));

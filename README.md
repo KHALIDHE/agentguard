@@ -73,8 +73,8 @@ Tests (they start a real Oracle with Testcontainers): `./mvnw verify`.
 | 1 | Skeleton, Docker Compose, synthetic hospital database, hospital tools MCP server | done |
 | 2 | Gateway pass-through, JWT identity on every call | done |
 | 3 | Policy engine, deny by default | done |
-| 4 | Row-level limits, field masking, argument validation, SQL guard | next |
-| 5 | Human approval workflow | |
+| 4 | Row-level limits, field masking, argument validation, SQL guard | done |
+| 5 | Human approval workflow | next |
 | 6 | Tamper-evident audit log | |
 | 7 | Untrusted content handling, limits and budgets | |
 | 8 | Demo agent | |

@@ -2,6 +2,8 @@ package dev.agentguard.gateway.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.agentguard.gateway.policy.KnownTools;
+import dev.agentguard.gateway.tools.ToolCatalog;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class ToolRegistrarTest {
 
     @Test
-    void scopeParametersAreRemovedFromThePublishedSchema() {
+    void publishedSchemaIsTheGatewaysNotTheUpstreams() {
         McpSchema.Tool upstream = McpSchema.Tool.builder()
             .name("search_patients")
             .description("Search patients")
@@ -20,15 +22,19 @@ class ToolRegistrarTest {
                 "properties", Map.of(
                     "name", Map.of("type", "string"),
                     "scopeDepartment", Map.of("type", "string"),
-                    "scopeDoctorId", Map.of("type", "integer")),
+                    "dangerousNewFlag", Map.of("type", "boolean")),
                 "required", List.of("name", "scopeDepartment")))
             .build();
 
-        McpSchema.Tool published = ToolRegistrar.withoutScopeParameters(upstream);
+        McpSchema.Tool published = ToolRegistrar.published(upstream, ToolCatalog.find("search_patients").orElseThrow());
 
-        assertThat(published.name()).isEqualTo("search_patients");
-        assertThat(GatewayToolHandler.publishedParameters(published)).containsOnly("name");
-        assertThat(published.inputSchema()).containsEntry("required", List.of("name"))
-            .containsEntry("additionalProperties", false);
+        assertThat(published.description()).isEqualTo("Search patients");
+        assertThat(GatewayToolHandler.publishedParameters(published)).containsOnly("name", "limit");
+        assertThat(published.inputSchema()).containsEntry("additionalProperties", false);
+    }
+
+    @Test
+    void everyKnownToolHasASchema() {
+        assertThat(ToolCatalog.toolNames()).containsExactlyInAnyOrderElementsOf(KnownTools.ALL);
     }
 }

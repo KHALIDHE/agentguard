@@ -91,6 +91,12 @@ public abstract class GatewayIntegrationTest {
         }
     }
 
+    /** Direct access to the hospital schema, to find test data independently of the gateway. */
+    protected static org.springframework.jdbc.core.JdbcTemplate hospitalDb() {
+        return new org.springframework.jdbc.core.JdbcTemplate(
+            new org.springframework.jdbc.datasource.DriverManagerDataSource(ORACLE.getJdbcUrl(), "hospital", "hospital"));
+    }
+
     @LocalServerPort
     protected int port;
 

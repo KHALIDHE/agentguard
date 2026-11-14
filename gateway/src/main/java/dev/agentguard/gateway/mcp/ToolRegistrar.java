@@ -1,12 +1,11 @@
 package dev.agentguard.gateway.mcp;
 
 import dev.agentguard.gateway.policy.KnownTools;
+import dev.agentguard.gateway.tools.ToolCatalog;
+import dev.agentguard.gateway.tools.ToolSchema;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
@@ -18,9 +17,10 @@ import org.springframework.stereotype.Component;
  * Publishes the upstream tools on the gateway's own MCP endpoint, so agents
  * see the same tools but every call lands in GatewayToolHandler first.
  *
- * Scope parameters (scopeDepartment, scopeDoctorId) are removed from the
- * published schemas: they are set by the gateway from the user's identity
- * and an agent must not even know they exist.
+ * The published schemas are the gateway's own (ToolCatalog), not the
+ * upstream ones: scope parameters never appear, and a change upstream cannot
+ * widen what agents may send. Upstream tools missing from the catalogue stay
+ * hidden.
  *
  * Retries every 15 seconds until the upstream answers, so the gateway can
  * start before the tools service.
@@ -48,11 +48,12 @@ public class ToolRegistrar {
         }
         try {
             for (McpSchema.Tool tool : upstream.listTools()) {
-                if (!KnownTools.ALL.contains(tool.name())) {
+                var schema = ToolCatalog.find(tool.name());
+                if (schema.isEmpty() || !KnownTools.ALL.contains(tool.name())) {
                     log.warn("Upstream tool {} is not in the gateway's catalogue and stays hidden", tool.name());
                     continue;
                 }
-                McpSchema.Tool visible = withoutScopeParameters(tool);
+                McpSchema.Tool visible = published(tool, schema.get());
                 server.addTool(McpServerFeatures.SyncToolSpecification.builder()
                     .tool(visible)
                     .callHandler((exchange, request) -> handler.handle(visible, exchange, request))
@@ -74,38 +75,17 @@ public class ToolRegistrar {
         return !published.isEmpty();
     }
 
-    static boolean isScopeParameter(String name) {
-        return name.startsWith("scope");
-    }
-
-    @SuppressWarnings("unchecked")
-    static McpSchema.Tool withoutScopeParameters(McpSchema.Tool tool) {
-        Map<String, Object> in = tool.inputSchema() == null ? Map.of() : tool.inputSchema();
-        Map<String, Object> properties = new LinkedHashMap<>();
-        Object inProps = in.get("properties");
-        if (inProps instanceof Map<?, ?> props) {
-            ((Map<String, Object>) props).forEach((k, v) -> {
-                if (!isScopeParameter(k)) {
-                    properties.put(k, v);
-                }
-            });
-        }
-        List<String> required = new ArrayList<>();
-        if (in.get("required") instanceof List<?> req) {
-            req.stream().map(String::valueOf).filter(r -> !isScopeParameter(r)).forEach(required::add);
-        }
-        Map<String, Object> out = new LinkedHashMap<>(in);
-        out.put("type", "object");
-        out.put("properties", properties);
-        out.put("required", required);
-        // additionalProperties=false tells clients that unknown arguments are not accepted.
-        out.put("additionalProperties", false);
+    /**
+     * The tool as agents see it: upstream name and description, but the
+     * gateway's own strict schema. Scope parameters are never in it.
+     */
+    static McpSchema.Tool published(McpSchema.Tool upstream, ToolSchema schema) {
         return McpSchema.Tool.builder()
-            .name(tool.name())
-            .title(tool.title())
-            .description(tool.description())
-            .inputSchema(out)
-            .annotations(tool.annotations())
+            .name(upstream.name())
+            .title(upstream.title())
+            .description(upstream.description())
+            .inputSchema(schema.jsonSchema())
+            .annotations(upstream.annotations())
             .build();
     }
 }

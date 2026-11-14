@@ -40,10 +40,26 @@ One entry per decision: context, choice, reason.
 ## D8. Phase 2 republishes the upstream schemas, minus scope parameters
 - **Context:** the gateway must offer the same tools as the upstream server.
 - **Choice:** at startup the gateway lists the upstream tools, removes every `scope*` parameter, sets `additionalProperties: false`, and publishes the result. Arguments not in the published schema are refused.
-- **Reason:** agents can never set the row-scope parameters themselves. This still trusts the upstream for the rest of the schema; phase 4 pins strict schemas inside the gateway (types, ranges, lengths), so a compromised upstream cannot widen what agents may send.
+- **Reason:** agents can never set the row-scope parameters themselves. This still trusted the upstream for the rest of the schema; D10 replaced it.
 
 ## D9. Policies as data: first match wins, deny by default
 - **Context:** permissions must be readable by a non-developer, testable as a table, and impossible to forget.
 - **Choice:** rules live in `policies.yml` (role, tool, optional condition, decision, scope, mask profile, reason). The engine evaluates them by priority; the first match decides; no match means DENY with the rule id `default-deny`. Conditions are small Specification objects (`ArgumentIn`, `ArgumentGreaterThan`, `AllOf`, `AnyOf`, `Not`) built from the YAML. The parser refuses unknown keys, roles, tools, decisions and mask profiles, so a typo stops the gateway at startup.
 - **Reason:** first-match is how firewalls work and is easy to reason about (one rule decides, and the audit can name it). The rejected alternative, combining all matching rules ("most restrictive wins"), is harder to explain and to test row by row. `PolicyMatrixTest` checks all 50 role and tool pairs, so any policy edit shows up as a diff in that table.
+
+## D10. The gateway owns the tool schemas
+- **Context:** D8 republished upstream schemas. A compromised or careless upstream could then add a parameter, and agents would be invited to use it.
+- **Choice:** `ToolCatalog` defines every tool's parameters with types, ranges, allowed values and lengths. That schema is what agents see and what is validated. Upstream tools missing from the catalogue stay hidden.
+- **Reason:** what an agent may send is decided by the gateway, not by the system it protects. Validation also runs before the policy, because policy conditions read arguments.
+
+## D11. Masking uses allow-lists where it can, and fails closed
+- **Context:** results come back as JSON rows from the upstream.
+- **Choice:** a mask profile either keeps only listed fields (reception) or removes and partly hides listed ones (nurse). If a result is not JSON, or a part is not text, the whole result is withheld. `structuredContent` is dropped from masked results.
+- **Reason:** an allow-list hides any column added upstream later. Withholding on doubt is the only safe failure: returning the raw result would bypass the policy.
+
+## D12. run_query is parsed, restricted and limited
+- **Context:** free SQL is the most dangerous tool an agent can hold.
+- **Choice:** JSqlParser must find exactly one SELECT. Tables, columns and functions come from allow-lists that exclude names, identifiers, contact data, diagnoses and salaries. Comments, `SELECT *`, `FOR UPDATE`, `INTO` and database links are refused. The accepted query is wrapped in `SELECT * FROM (...) FETCH FIRST n ROWS ONLY`.
+- **Reason:** text filters are bypassed by case, comments and spacing; a parse tree is not. The tool also stays behind ADMIN-only policy, and the upstream runs it in an Oracle read-only transaction, so three independent walls must fail before data leaks or changes.
+- **Known limit:** the column check is by name, across the tables a query uses. Two allowed tables sharing a column name cannot be told apart, which is acceptable here because the allow-lists hold no sensitive columns.
 
