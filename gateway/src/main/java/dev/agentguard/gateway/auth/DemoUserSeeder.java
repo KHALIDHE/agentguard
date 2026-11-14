@@ -32,7 +32,9 @@ public class DemoUserSeeder implements ApplicationRunner {
         new Demo("nurse.hajar", Role.NURSE, "NEURO", null),
         new Demo("reception.omar", Role.RECEPTIONIST, "CARDIO", null),
         new Demo("hr.imane", Role.HR, null, null),
-        new Demo("admin.youssef", Role.ADMIN, null, null));
+        new Demo("admin.youssef", Role.ADMIN, null, null),
+        // A second administrator: approvals need someone other than the requester.
+        new Demo("admin.nadia", Role.ADMIN, null, null));
 
     private final AppUserRepository users;
     private final PasswordEncoder passwordEncoder;

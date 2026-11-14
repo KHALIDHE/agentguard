@@ -1,12 +1,13 @@
 package dev.agentguard.gateway.mcp;
 
+import dev.agentguard.gateway.approval.ApprovalRequest;
+import dev.agentguard.gateway.approval.ApprovalService;
 import dev.agentguard.gateway.auth.UserIdentity;
 import dev.agentguard.gateway.policy.Decision;
 import dev.agentguard.gateway.policy.DecisionType;
 import dev.agentguard.gateway.policy.KnownTools;
 import dev.agentguard.gateway.policy.PolicyEngine;
 import dev.agentguard.gateway.policy.ToolCallContext;
-import dev.agentguard.gateway.tools.FieldMasker;
 import dev.agentguard.gateway.tools.ScopeResolver;
 import dev.agentguard.gateway.tools.SqlGuard;
 import dev.agentguard.gateway.tools.ToolCatalog;
@@ -31,6 +32,7 @@ import org.springframework.stereotype.Component;
  *   3. SQL guard    run_query must be one safe SELECT; a row limit is forced
  *   4. policy       first matching rule decides, deny by default
  *   5. row scope    department / doctor limits are added from the identity
+ *      approval     REQUIRE_APPROVAL stores the scoped call and stops here
  *   6. upstream     the call is forwarded with the service token
  *   7. masking      sensitive fields are removed before the agent sees them
  *
@@ -46,10 +48,12 @@ public class GatewayToolHandler {
 
     private final UpstreamClient upstream;
     private final PolicyEngine policies;
+    private final ApprovalService approvals;
 
-    public GatewayToolHandler(UpstreamClient upstream, PolicyEngine policies) {
+    public GatewayToolHandler(UpstreamClient upstream, PolicyEngine policies, ApprovalService approvals) {
         this.upstream = upstream;
         this.policies = policies;
+        this.approvals = approvals;
     }
 
     public McpSchema.CallToolResult handle(McpSchema.Tool tool, McpSyncServerExchange exchange,
@@ -88,10 +92,6 @@ public class GatewayToolHandler {
         if (decision.type() == DecisionType.DENY) {
             return refuse(tool.name(), identity, "Denied by policy " + decision.ruleId() + ": " + decision.reason(), started);
         }
-        if (decision.type() == DecisionType.REQUIRE_APPROVAL) {
-            return refuse(tool.name(), identity,
-                "Needs a human approval (policy " + decision.ruleId() + "): " + decision.reason(), started);
-        }
 
         // 5. row scope
         Map<String, Object> upstreamArgs;
@@ -101,42 +101,30 @@ public class GatewayToolHandler {
             return refuse(tool.name(), identity, e.getMessage(), started);
         }
 
+        // 5b. hold for a human: the scoped call is stored and executed later by the gateway itself
+        if (decision.type() == DecisionType.REQUIRE_APPROVAL) {
+            ApprovalRequest pending = approvals.create(identity, tool.name(), upstreamArgs, decision);
+            log.info("PENDING user={} tool={} rule={} approval={}", identity.username(), tool.name(),
+                decision.ruleId(), pending.getId());
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("PENDING_APPROVAL: request " + pending.getId() + " is waiting for a human decision. "
+                    + "Reason (policy " + decision.ruleId() + "): " + decision.reason() + " "
+                    + "It expires at " + pending.getExpiresAt() + "; without a decision it is refused. "
+                    + "Follow it with " + ApprovalStatusTool.NAME + " {\"approvalId\": " + pending.getId() + "}.")
+                .build();
+        }
+
         // 6. upstream
         McpSchema.CallToolResult result = upstream.call(tool.name(), upstreamArgs);
 
         // 7. masking
         if (decision.maskProfile() != null && !Boolean.TRUE.equals(result.isError())) {
-            result = mask(result, decision.maskProfile());
+            result = ResultMasking.mask(result, decision.maskProfile());
         }
 
         log.info("{} user={} role={} tool={} rule={} ms={}", decision.type(), identity.username(), identity.role(),
             tool.name(), decision.ruleId(), (System.nanoTime() - started) / 1_000_000);
         return result;
-    }
-
-    /**
-     * Masks every text part. If a part cannot be parsed as JSON, the whole
-     * result is withheld: returning it unmasked would defeat the policy.
-     */
-    static McpSchema.CallToolResult mask(McpSchema.CallToolResult result, String profile) {
-        McpSchema.CallToolResult.Builder masked = McpSchema.CallToolResult.builder().isError(result.isError());
-        for (McpSchema.Content part : result.content()) {
-            if (!(part instanceof McpSchema.TextContent text)) {
-                return withheld();
-            }
-            try {
-                masked.addTextContent(FieldMasker.maskJson(text.text(), profile));
-            } catch (RuntimeException e) {
-                return withheld();
-            }
-        }
-        // structuredContent is dropped on purpose: it would carry the unmasked fields.
-        return masked.build();
-    }
-
-    private static McpSchema.CallToolResult withheld() {
-        return McpSchema.CallToolResult.builder().isError(true)
-            .addTextContent("Refused by AgentGuard: the result could not be masked and was withheld").build();
     }
 
     public static Set<String> publishedParameters(McpSchema.Tool tool) {

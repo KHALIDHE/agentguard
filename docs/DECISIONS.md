@@ -63,3 +63,8 @@ One entry per decision: context, choice, reason.
 - **Reason:** text filters are bypassed by case, comments and spacing; a parse tree is not. The tool also stays behind ADMIN-only policy, and the upstream runs it in an Oracle read-only transaction, so three independent walls must fail before data leaks or changes.
 - **Known limit:** the column check is by name, across the tables a query uses. Two allowed tables sharing a column name cannot be told apart, which is acceptable here because the allow-lists hold no sensitive columns.
 
+## D13. Approval as a compare-and-set UPDATE, execution by the gateway
+- **Context:** an approval must be single-use, bound to one exact action, and safe when two approvers act at once.
+- **Choice:** the scoped call is stored with a SHA-256 of (requester, tool, canonical arguments). Deciding is one `UPDATE ... WHERE status = 'PENDING' AND expires_at > now AND requester_name <> approver`; whoever changes the row wins, and everyone else gets 409. After approval the gateway executes the stored call once, re-checking the hash first. A CHECK constraint also forbids `decided_by = requester_name`. Pending requests expire after `agentguard.approvals.timeout` (10 minutes by default) and count as refused.
+- **Reason:** the agent never holds anything it could replay with different arguments. The rejected alternative, a one-time approval token returned to the agent, would move the trust back to the client. A single conditional UPDATE is atomic in Oracle without holding a lock between a read and a write.
+

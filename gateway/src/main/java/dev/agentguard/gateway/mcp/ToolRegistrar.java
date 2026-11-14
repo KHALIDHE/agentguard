@@ -33,12 +33,15 @@ public class ToolRegistrar {
     private final UpstreamClient upstream;
     private final McpSyncServer server;
     private final GatewayToolHandler handler;
+    private final ApprovalStatusTool approvalStatus;
     private final Map<String, McpSchema.Tool> published = new ConcurrentHashMap<>();
 
-    public ToolRegistrar(UpstreamClient upstream, McpSyncServer server, GatewayToolHandler handler) {
+    public ToolRegistrar(UpstreamClient upstream, McpSyncServer server, GatewayToolHandler handler,
+                         ApprovalStatusTool approvalStatus) {
         this.upstream = upstream;
         this.server = server;
         this.handler = handler;
+        this.approvalStatus = approvalStatus;
     }
 
     @Scheduled(initialDelay = 0, fixedDelay = 15_000)
@@ -60,6 +63,10 @@ public class ToolRegistrar {
                     .build());
                 published.put(visible.name(), visible);
             }
+            server.addTool(McpServerFeatures.SyncToolSpecification.builder()
+                .tool(approvalStatus.definition())
+                .callHandler(approvalStatus::handle)
+                .build());
             server.notifyToolsListChanged();
             log.info("Published {} upstream tools: {}", published.size(), published.keySet());
         } catch (RuntimeException e) {

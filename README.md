@@ -52,7 +52,7 @@ In a second terminal, the gateway:
 ./mvnw -pl gateway spring-boot:run
 ```
 
-Get a token for a demo user (`dr.amrani`, `nurse.salma`, `reception.omar`, `hr.imane`, `admin.youssef`, ...):
+Get a token for a demo user (`dr.amrani`, `nurse.salma`, `reception.omar`, `hr.imane`, `admin.youssef`, `admin.nadia`, ...):
 
 ```bash
 curl -X POST localhost:8080/auth/login -H 'Content-Type: application/json'      -d '{"username":"nurse.salma","password":"<DEMO_USER_PASSWORD>"}'
@@ -74,8 +74,8 @@ Tests (they start a real Oracle with Testcontainers): `./mvnw verify`.
 | 2 | Gateway pass-through, JWT identity on every call | done |
 | 3 | Policy engine, deny by default | done |
 | 4 | Row-level limits, field masking, argument validation, SQL guard | done |
-| 5 | Human approval workflow | next |
-| 6 | Tamper-evident audit log | |
+| 5 | Human approval workflow | done |
+| 6 | Tamper-evident audit log | next |
 | 7 | Untrusted content handling, limits and budgets | |
 | 8 | Demo agent | |
 | 9 | Dashboard | |

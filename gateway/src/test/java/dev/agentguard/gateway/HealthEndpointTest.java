@@ -18,7 +18,7 @@ class HealthEndpointTest extends GatewayIntegrationTest {
         String schema = jdbc.queryForObject(
             "SELECT meta_value FROM app_meta WHERE meta_key = 'schema'", String.class);
         assertThat(schema).isEqualTo("agentguard");
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM app_user", Integer.class)).isEqualTo(7);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM app_user", Integer.class)).isEqualTo(8);
     }
 
     @Test

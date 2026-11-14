@@ -12,7 +12,7 @@ Each step is marked with the phase from which it works.
 | 6 | Open the audit log. Run the chain verification, change one record by hand, run it again and watch it fail. | phase 6 |
 | 7 | Show the evaluation report. | phase 10 |
 
-## Available now (phase 4)
+## Available now (phase 5)
 
 1. Start Oracle, the hospital tools and the gateway (see the README).
 2. Log in as `nurse.salma` and connect an MCP client to `http://localhost:8080/mcp` with the token.
@@ -23,7 +23,7 @@ Each step is marked with the phase from which it works.
 7. Call `http://localhost:8081/mcp` directly: 401, only the gateway holds the service token.
 8. As `nurse.salma`, call `get_staff_salaries`: refused with `Denied by policy salaries-everyone-else: Salary data is restricted to HR.`
 9. As `hr.imane`, call `get_staff_salaries`: the salaries come back.
-10. As `reception.omar`, call `cancel_appointments`: refused for now with "Needs a human approval" (the approval queue arrives in phase 5).
+10. As `reception.omar`, call `cancel_appointments` for tomorrow: the agent gets `PENDING_APPROVAL: request N ...`. Nothing is cancelled yet. `GET /admin/approvals?status=PENDING` as `admin.youssef` shows it; `POST /admin/approvals/N/refuse` refuses it, and `get_approval_status {"approvalId": N}` now says `REFUSED`.
 11. As `admin.youssef`, `GET /admin/policies` lists the 14 rules in evaluation order.
 12. As `nurse.salma` (CARDIO), call `get_patient_record` for a NEURO patient: `{"found": false}`. The department filter is in the SQL.
 13. Same nurse, a CARDIO patient: no `ADDRESS`, no `DIAGNOSIS`, `NATIONAL_ID` shown as `******42`. As `dr.amrani`, the same patient comes back in full.

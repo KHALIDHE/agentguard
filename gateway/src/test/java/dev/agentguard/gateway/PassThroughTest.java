@@ -36,8 +36,9 @@ class PassThroughTest extends GatewayIntegrationTest {
 
             assertThat(tools).extracting(McpSchema.Tool::name)
                 .contains("search_patients", "get_patient_record", "get_staff_salaries", "run_query")
-                .hasSize(10);
-            assertThat(tools).allSatisfy(tool -> {
+                .contains("get_approval_status")
+                .hasSize(11);
+            assertThat(tools).filteredOn(t -> !t.name().equals("get_approval_status")).allSatisfy(tool -> {
                 assertThat(GatewayToolHandler.publishedParameters(tool)).noneMatch(p -> p.startsWith("scope"));
                 assertThat(tool.inputSchema()).containsEntry("additionalProperties", false);
             });
@@ -112,7 +113,8 @@ class PassThroughTest extends GatewayIntegrationTest {
             McpSchema.CallToolResult result = client.callTool(
                 new McpSchema.CallToolRequest("cancel_appointments", Map.of("date", "2030-01-01")));
 
-            assertThat(text(result)).contains("Needs a human approval").contains("cancel-day-reception");
+            assertThat(result.isError()).isNotEqualTo(Boolean.TRUE);
+            assertThat(text(result)).startsWith("PENDING_APPROVAL").contains("cancel-day-reception");
         }
     }
 
