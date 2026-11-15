@@ -37,6 +37,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:?}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      # Extra Spring settings as JSON. Groq needs {"spring":{"ai":{"openai":{"chat":{"options":{"extra-body":{"include_reasoning":false}}}}}}}
+      SPRING_APPLICATION_JSON: ${AGENT_OPTIONS_JSON:-{}}
       GATEWAY_URL: http://gateway:8080
       MAX_CHATS_PER_HOUR: ${MAX_CHATS_PER_HOUR:-40}
       JAVA_TOOL_OPTIONS: -Xmx300m
