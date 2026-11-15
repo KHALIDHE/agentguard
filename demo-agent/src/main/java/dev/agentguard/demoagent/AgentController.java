@@ -70,10 +70,15 @@ public class AgentController {
         try {
             takeBudget();
             var tools = SyncMcpToolCallbackProvider.builder().mcpClients(mcp).build();
+            var callbacks = tools.getToolCallbacks();
+            log.info("AgentGuard offered {} tools", callbacks.length);
+            if (callbacks.length == 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AgentGuard offered no tools to this user");
+            }
             String answer = chat.build().prompt()
                 .system(SYSTEM)
                 .user(request.message())
-                .toolCallbacks(tools.getToolCallbacks())
+                .toolCallbacks(callbacks)
                 .call()
                 .content();
             return new ChatResponse(answer);
