@@ -13,6 +13,8 @@ spring:
           model: ${OLLAMA_MODEL:qwen2.5:7b}
     openai:
       api-key: ${OPENAI_API_KEY:}
+      # Any OpenAI-compatible service works, for example Groq: https://api.groq.com/openai
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
       chat:
         options:
           model: ${OPENAI_MODEL:gpt-4o-mini}
