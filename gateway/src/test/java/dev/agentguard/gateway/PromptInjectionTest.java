@@ -36,7 +36,7 @@ class PromptInjectionTest extends GatewayIntegrationTest {
     }
 
     private static long documentTitled(String title) {
-        return hospitalDb().queryForObject("SELECT id FROM document WHERE title = ?", Long.class, title);
+        return financeDb().queryForObject("SELECT id FROM document WHERE title = ?", Long.class, title);
     }
 
     private static String text(McpSchema.CallToolResult r) {
@@ -45,33 +45,33 @@ class PromptInjectionTest extends GatewayIntegrationTest {
 
     @Test
     void poisonedReportIsLabelledAndTheExportItAsksForStillFails() {
-        try (McpSyncClient nurse = agent(login("nurse.salma"))) {
-            McpSchema.CallToolResult doc = nurse.callTool(new McpSchema.CallToolRequest("get_document",
+        try (McpSyncClient accountant = agent(login("accountant.salma"))) {
+            McpSchema.CallToolResult doc = accountant.callTool(new McpSchema.CallToolRequest("get_document",
                 Map.of("documentId", documentTitled("Quarterly report draft"))));
 
             assertThat(text(doc)).startsWith("[UNTRUSTED CONTENT from get_document")
                 .contains("ignore-instructions").contains("tool-invocation");
 
             // A fooled agent does what the document says.
-            McpSchema.CallToolResult export = nurse.callTool(new McpSchema.CallToolRequest("export_report",
-                Map.of("reportType", "PATIENTS")));
+            McpSchema.CallToolResult export = accountant.callTool(new McpSchema.CallToolRequest("export_report",
+                Map.of("reportType", "SUPPLIERS")));
             assertThat(export.isError()).isTrue();
             assertThat(text(export)).contains("default-deny");
         }
 
-        AuditRecord read = audit.search("nurse.salma", "get_document", null, null, null, 1).get(0);
+        AuditRecord read = audit.search("accountant.salma", "get_document", null, null, null, 1).get(0);
         assertThat(read.entry().flags()).contains("ignore-instructions");
     }
 
     @Test
     void fakeAdminClaimInADocumentChangesNothing() {
-        try (McpSyncClient reception = agent(login("reception.omar"))) {
-            McpSchema.CallToolResult doc = reception.callTool(new McpSchema.CallToolRequest("get_document",
+        try (McpSyncClient clerk = agent(login("clerk.omar"))) {
+            McpSchema.CallToolResult doc = clerk.callTool(new McpSchema.CallToolRequest("get_document",
                 Map.of("documentId", documentTitled("Supplier invoice 2026-0412"))));
             assertThat(text(doc)).contains("authority-claim");
 
-            McpSchema.CallToolResult salaries = reception.callTool(new McpSchema.CallToolRequest(
-                "get_staff_salaries", Map.of("department", "CARDIO")));
+            McpSchema.CallToolResult salaries = clerk.callTool(new McpSchema.CallToolRequest(
+                "get_employee_salaries", Map.of("department", "ACCT")));
             assertThat(salaries.isError()).isTrue();
             assertThat(text(salaries)).contains("salaries-everyone-else");
         }
@@ -79,36 +79,36 @@ class PromptInjectionTest extends GatewayIntegrationTest {
 
     @Test
     void injectedBulkCancellationOnlyReachesTheApprovalQueue() {
-        int scheduledBefore = hospitalDb().queryForObject(
-            "SELECT COUNT(*) FROM appointment WHERE status = 'SCHEDULED'", Integer.class);
-        try (McpSyncClient reception = agent(login("reception.omar"))) {
-            reception.callTool(new McpSchema.CallToolRequest("get_document",
+        int pendingBefore = financeDb().queryForObject(
+            "SELECT COUNT(*) FROM invoice WHERE status = 'PENDING'", Integer.class);
+        try (McpSyncClient clerk = agent(login("clerk.omar"))) {
+            clerk.callTool(new McpSchema.CallToolRequest("get_document",
                 Map.of("documentId", documentTitled("Meeting minutes, 3 November"))));
 
-            McpSchema.CallToolResult cancel = reception.callTool(new McpSchema.CallToolRequest(
-                "cancel_appointments", Map.of("date", java.time.LocalDate.now().plusDays(1).toString())));
+            McpSchema.CallToolResult cancel = clerk.callTool(new McpSchema.CallToolRequest(
+                "cancel_invoices", Map.of("date", java.time.LocalDate.now().plusDays(1).toString())));
 
             assertThat(text(cancel)).startsWith("PENDING_APPROVAL");
         }
-        assertThat(hospitalDb().queryForObject("SELECT COUNT(*) FROM appointment WHERE status = 'SCHEDULED'",
-            Integer.class)).isEqualTo(scheduledBefore);
+        assertThat(financeDb().queryForObject("SELECT COUNT(*) FROM invoice WHERE status = 'PENDING'",
+            Integer.class)).isEqualTo(pendingBefore);
     }
 
     @Test
     void callsAboveTheRateLimitAreRefusedAndRecorded() {
-        // The test configuration allows 5 list_appointments calls per minute.
+        // The test configuration allows 5 list_invoices calls per minute.
         String day = java.time.LocalDate.now().toString();
-        try (McpSyncClient nurse = agent(login("nurse.hajar"))) {
+        try (McpSyncClient accountant = agent(login("accountant.hajar"))) {
             for (int i = 0; i < 5; i++) {
-                assertThat(nurse.callTool(new McpSchema.CallToolRequest("list_appointments", Map.of("date", day)))
+                assertThat(accountant.callTool(new McpSchema.CallToolRequest("list_invoices", Map.of("date", day)))
                     .isError()).isNotEqualTo(Boolean.TRUE);
             }
-            McpSchema.CallToolResult sixth = nurse.callTool(
-                new McpSchema.CallToolRequest("list_appointments", Map.of("date", day)));
+            McpSchema.CallToolResult sixth = accountant.callTool(
+                new McpSchema.CallToolRequest("list_invoices", Map.of("date", day)));
             assertThat(sixth.isError()).isTrue();
             assertThat(text(sixth)).contains("Too many calls");
         }
-        assertThat(audit.search("nurse.hajar", "list_appointments", "DENY", null, null, 1).get(0).entry().ruleId())
+        assertThat(audit.search("accountant.hajar", "list_invoices", "DENY", null, null, 1).get(0).entry().ruleId())
             .isEqualTo("rate-limit");
     }
 
@@ -117,10 +117,10 @@ class PromptInjectionTest extends GatewayIntegrationTest {
         try (McpSyncClient admin = agent(login("admin.nadia"))) {
             for (int i = 0; i < 3; i++) {
                 assertThat(text(admin.callTool(new McpSchema.CallToolRequest("export_report",
-                    Map.of("reportType", "APPOINTMENTS"))))).startsWith("PENDING_APPROVAL");
+                    Map.of("reportType", "INVOICES"))))).startsWith("PENDING_APPROVAL");
             }
             McpSchema.CallToolResult fourth = admin.callTool(new McpSchema.CallToolRequest("export_report",
-                Map.of("reportType", "APPOINTMENTS")));
+                Map.of("reportType", "INVOICES")));
             assertThat(fourth.isError()).isTrue();
             assertThat(text(fourth)).contains("Daily export budget");
         }

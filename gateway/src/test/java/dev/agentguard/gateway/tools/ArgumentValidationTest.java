@@ -16,25 +16,25 @@ class ArgumentValidationTest {
 
     @Test
     void validArgumentsPass() {
-        assertThat(error("get_patient_record", Map.of("patientId", 42))).isNull();
-        assertThat(error("list_appointments", Map.of("date", "2026-11-15", "status", "SCHEDULED"))).isNull();
-        assertThat(error("search_patients", Map.of())).isNull();
+        assertThat(error("get_supplier_record", Map.of("supplierId", 42))).isNull();
+        assertThat(error("list_invoices", Map.of("date", "2026-11-15", "status", "PENDING"))).isNull();
+        assertThat(error("search_suppliers", Map.of())).isNull();
     }
 
     @ParameterizedTest(name = "{0} {1}={2} -> {3}")
     @CsvSource(delimiter = '|', value = {
-        "get_patient_record | patientId     | abc                 | must be a whole number",
-        "get_patient_record | patientId     | 0                   | must be at least 1",
-        "get_patient_record | patientId     | 99999999999         | must be at most",
-        "get_patient_record | patientId     | 4.5                 | must be a whole number",
-        "list_appointments  | date          | 2026-13-45          | must be a date",
-        "list_appointments  | date          | tomorrow            | must be a date",
-        "list_appointments  | status        | MAYBE               | must be one of",
-        "update_appointment | status        | scheduled           | must be one of",
-        "get_staff_directory| department    | cardio              | invalid format",
-        "get_staff_directory| department    | CARDIO; DROP TABLE  | longer than 16",
+        "get_supplier_record | supplierId     | abc                 | must be a whole number",
+        "get_supplier_record | supplierId     | 0                   | must be at least 1",
+        "get_supplier_record | supplierId     | 99999999999         | must be at most",
+        "get_supplier_record | supplierId     | 4.5                 | must be a whole number",
+        "list_invoices  | date          | 2026-13-45          | must be a date",
+        "list_invoices  | date          | tomorrow            | must be a date",
+        "list_invoices  | status        | MAYBE               | must be one of",
+        "update_invoice | status        | pending           | must be one of",
+        "get_employee_directory| department    | acct              | invalid format",
+        "get_employee_directory| department    | ACCT; DROP TABLE users | longer than 16",
         "export_report      | reportType    | EVERYTHING          | must be one of",
-        "search_patients    | limit         | 1000                | must be at most 100",
+        "search_suppliers    | limit         | 1000                | must be at most 100",
     })
     void malformedValuesAreRefused(String tool, String arg, String value, String expected) {
         Map<String, Object> args = baseArgs(tool);
@@ -45,27 +45,27 @@ class ArgumentValidationTest {
 
     @Test
     void oversizedStringsAreRefused() {
-        assertThat(error("search_patients", Map.of("name", "a".repeat(81)))).contains("longer than 80");
-        assertThat(error("run_query", Map.of("sql", "SELECT id FROM patient WHERE " + "x".repeat(2000))))
+        assertThat(error("search_suppliers", Map.of("name", "a".repeat(81)))).contains("longer than 80");
+        assertThat(error("run_query", Map.of("sql", "SELECT id FROM supplier WHERE " + "x".repeat(2000))))
             .contains("longer than 2000");
     }
 
     @Test
     void missingRequiredArgumentsAreRefused() {
-        assertThat(error("get_patient_record", Map.of())).contains("'patientId' is required");
+        assertThat(error("get_supplier_record", Map.of())).contains("'supplierId' is required");
     }
 
     @Test
     void unknownAndScopeArgumentsAreRefused() {
-        assertThat(error("search_patients", Map.of("scopeDepartment", "NEURO"))).contains("not accepted");
+        assertThat(error("search_suppliers", Map.of("scopeDepartment", "TREAS"))).contains("not accepted");
         assertThat(error("get_document", Map.of("documentId", 1, "raw", true))).contains("not accepted");
     }
 
     private static Map<String, Object> baseArgs(String tool) {
         Map<String, Object> args = new HashMap<>();
         switch (tool) {
-            case "list_appointments" -> args.put("date", "2026-11-15");
-            case "update_appointment" -> { args.put("appointmentId", 1); args.put("status", "DONE"); }
+            case "list_invoices" -> args.put("date", "2026-11-15");
+            case "update_invoice" -> { args.put("invoiceId", 1); args.put("status", "PAID"); }
             default -> { }
         }
         return args;

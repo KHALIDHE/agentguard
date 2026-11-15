@@ -21,8 +21,8 @@ public final class FieldMasker {
     record Profile(Set<String> keepOnly, Set<String> remove, Set<String> partial) {}
 
     static final Map<String, Profile> PROFILES = Map.of(
-        "nurse-patient", new Profile(null, Set.of("ADDRESS", "DIAGNOSIS"), Set.of("NATIONAL_ID", "PHONE")),
-        "reception-patient", new Profile(Set.of("ID", "FULL_NAME", "DEPARTMENT", "DOCTOR_ID", "ADMITTED_ON"),
+        "accountant-supplier", new Profile(null, Set.of("ADDRESS", "IBAN"), Set.of("TAX_ID", "PHONE")),
+        "clerk-supplier", new Profile(Set.of("ID", "FULL_NAME", "DEPARTMENT", "MANAGER_ID", "ONBOARDED_ON"),
             Set.of(), Set.of()));
 
     private static final JsonMapper JSON = JsonMapper.builder().build();

@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-/** A tool call goes agent -> gateway -> hospital tools -> Oracle and back. */
+/** A tool call goes agent -> gateway -> finance tools -> Oracle and back. */
 class PassThroughTest extends GatewayIntegrationTest {
 
     @Autowired
@@ -31,11 +31,11 @@ class PassThroughTest extends GatewayIntegrationTest {
 
     @Test
     void agentSeesTheUpstreamToolsWithoutScopeParameters() {
-        try (McpSyncClient client = agent(login("nurse.salma"))) {
+        try (McpSyncClient client = agent(login("accountant.salma"))) {
             List<McpSchema.Tool> tools = client.listTools().tools();
 
             assertThat(tools).extracting(McpSchema.Tool::name)
-                .contains("search_patients", "get_patient_record", "get_staff_salaries", "run_query")
+                .contains("search_suppliers", "get_supplier_record", "get_employee_salaries", "run_query")
                 .contains("get_approval_status")
                 .hasSize(11);
             assertThat(tools).filteredOn(t -> !t.name().equals("get_approval_status")).allSatisfy(tool -> {
@@ -47,20 +47,20 @@ class PassThroughTest extends GatewayIntegrationTest {
 
     @Test
     void callIsForwardedAndTheRealDataComesBack() {
-        try (McpSyncClient client = agent(login("dr.amrani"))) {
+        try (McpSyncClient client = agent(login("fm.amrani"))) {
             McpSchema.CallToolResult result = client.callTool(
-                new McpSchema.CallToolRequest("get_staff_directory", Map.of("department", "CARDIO")));
+                new McpSchema.CallToolRequest("get_employee_directory", Map.of("department", "ACCT")));
 
             assertThat(result.isError()).isNotEqualTo(Boolean.TRUE);
-            assertThat(text(result)).contains("@hospital.example").contains("CARDIO");
+            assertThat(text(result)).contains("@finance.example").contains("ACCT");
         }
     }
 
     @Test
     void agentCannotInjectScopeParameters() {
-        try (McpSyncClient client = agent(login("nurse.salma"))) {
+        try (McpSyncClient client = agent(login("accountant.salma"))) {
             McpSchema.CallToolResult result = client.callTool(new McpSchema.CallToolRequest(
-                "search_patients", Map.of("name", "a", "scopeDepartment", "NEURO")));
+                "search_suppliers", Map.of("name", "a", "scopeDepartment", "TREAS")));
 
             // GatewayToolHandler refuses it (and audits the refusal) before any upstream call.
             assertThat(result.isError()).isTrue();
@@ -70,7 +70,7 @@ class PassThroughTest extends GatewayIntegrationTest {
 
     @Test
     void unknownArgumentsAreRefused() {
-        try (McpSyncClient client = agent(login("nurse.salma"))) {
+        try (McpSyncClient client = agent(login("accountant.salma"))) {
             McpSchema.CallToolResult result = client.callTool(new McpSchema.CallToolRequest(
                 "get_document", Map.of("documentId", 1, "includeHidden", true)));
 
@@ -84,10 +84,10 @@ class PassThroughTest extends GatewayIntegrationTest {
     }
 
     @Test
-    void nurseIsDeniedSalariesWithTheRuleAndReason() {
-        try (McpSyncClient client = agent(login("nurse.salma"))) {
+    void accountantIsDeniedSalariesWithTheRuleAndReason() {
+        try (McpSyncClient client = agent(login("accountant.salma"))) {
             McpSchema.CallToolResult result = client.callTool(
-                new McpSchema.CallToolRequest("get_staff_salaries", Map.of()));
+                new McpSchema.CallToolRequest("get_employee_salaries", Map.of()));
 
             assertThat(result.isError()).isTrue();
             assertThat(text(result)).contains("salaries-everyone-else").contains("restricted to HR");
@@ -98,7 +98,7 @@ class PassThroughTest extends GatewayIntegrationTest {
     void hrGetsSalaries() {
         try (McpSyncClient client = agent(login("hr.imane"))) {
             McpSchema.CallToolResult result = client.callTool(
-                new McpSchema.CallToolRequest("get_staff_salaries", Map.of("department", "CARDIO")));
+                new McpSchema.CallToolRequest("get_employee_salaries", Map.of("department", "ACCT")));
 
             assertThat(result.isError()).isNotEqualTo(Boolean.TRUE);
             assertThat(text(result)).contains("SALARY_MAD");
@@ -107,12 +107,12 @@ class PassThroughTest extends GatewayIntegrationTest {
 
     @Test
     void bulkCancellationWaitsForApproval() {
-        try (McpSyncClient client = agent(login("reception.omar"))) {
+        try (McpSyncClient client = agent(login("clerk.omar"))) {
             McpSchema.CallToolResult result = client.callTool(
-                new McpSchema.CallToolRequest("cancel_appointments", Map.of("date", "2030-01-01")));
+                new McpSchema.CallToolRequest("cancel_invoices", Map.of("date", "2030-01-01")));
 
             assertThat(result.isError()).isNotEqualTo(Boolean.TRUE);
-            assertThat(text(result)).startsWith("PENDING_APPROVAL").contains("cancel-day-reception");
+            assertThat(text(result)).startsWith("PENDING_APPROVAL").contains("cancel-day-clerk");
         }
     }
 
@@ -122,10 +122,10 @@ class PassThroughTest extends GatewayIntegrationTest {
 
         int asAdmin = http.get().uri("/admin/policies").header("Authorization", "Bearer " + login("admin.youssef"))
             .exchange((req, res) -> res.getStatusCode().value());
-        int asNurse = http.get().uri("/admin/policies").header("Authorization", "Bearer " + login("nurse.salma"))
+        int asAccountant = http.get().uri("/admin/policies").header("Authorization", "Bearer " + login("accountant.salma"))
             .exchange((req, res) -> res.getStatusCode().value());
 
         assertThat(asAdmin).isEqualTo(200);
-        assertThat(asNurse).isEqualTo(403);
+        assertThat(asAccountant).isEqualTo(403);
     }
 }

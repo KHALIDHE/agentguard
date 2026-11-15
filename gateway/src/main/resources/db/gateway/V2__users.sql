@@ -7,12 +7,12 @@ CREATE TABLE app_user (
     password_hash      VARCHAR2(100) NOT NULL,
     role               VARCHAR2(20)  NOT NULL,
     department         VARCHAR2(16),
-    hospital_staff_id  NUMBER,
+    finance_employee_id  NUMBER,
     active             BOOLEAN       DEFAULT TRUE NOT NULL,
     created_at         TIMESTAMP(6) WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL,
     CONSTRAINT uq_app_user_username UNIQUE (username),
-    CONSTRAINT ck_app_user_role CHECK (role IN ('DOCTOR', 'NURSE', 'RECEPTIONIST', 'HR', 'ADMIN')),
-    -- Clinical roles always work in a department; the policy engine relies on it.
+    CONSTRAINT ck_app_user_role CHECK (role IN ('FINANCE_MANAGER', 'ACCOUNTANT', 'CLERK', 'HR', 'ADMIN')),
+    -- Finance roles always work in a department; the policy engine relies on it.
     CONSTRAINT ck_app_user_department CHECK (
         role IN ('HR', 'ADMIN') OR department IS NOT NULL)
 );

@@ -23,7 +23,7 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The receptionist asks to cancel a whole day. Nothing happens until another
+ * The clerk asks to cancel a whole day. Nothing happens until another
  * person decides, and the gateway then runs exactly the stored, scoped call.
  */
 class ApprovalFlowTest extends GatewayIntegrationTest {
@@ -48,25 +48,25 @@ class ApprovalFlowTest extends GatewayIntegrationTest {
         }
     }
 
-    /** Future days with scheduled CARDIO appointments; each test takes a different one. */
-    private static List<LocalDate> cardioDaysWithAppointments() {
-        return hospitalDb().queryForList("""
-            SELECT DISTINCT TRUNC(a.scheduled_at) FROM appointment a JOIN department d ON d.id = a.department_id
-            WHERE d.code = 'CARDIO' AND a.status = 'SCHEDULED' AND a.scheduled_at > SYSDATE
+    /** Future days with pending ACCT invoices; each test takes a different one. */
+    private static List<LocalDate> acctDaysWithInvoices() {
+        return financeDb().queryForList("""
+            SELECT DISTINCT TRUNC(a.due_at) FROM invoice a JOIN department d ON d.id = a.department_id
+            WHERE d.code = 'ACCT' AND a.status = 'PENDING' AND a.due_at > SYSDATE
             ORDER BY 1""", java.sql.Timestamp.class).stream().map(t -> t.toLocalDateTime().toLocalDate()).toList();
     }
 
-    private static int scheduled(String department, LocalDate day) {
-        return hospitalDb().queryForObject("""
-            SELECT COUNT(*) FROM appointment a JOIN department d ON d.id = a.department_id
-            WHERE d.code = ? AND a.status = 'SCHEDULED' AND a.scheduled_at >= ? AND a.scheduled_at < ?""",
+    private static int pending(String department, LocalDate day) {
+        return financeDb().queryForObject("""
+            SELECT COUNT(*) FROM invoice a JOIN department d ON d.id = a.department_id
+            WHERE d.code = ? AND a.status = 'PENDING' AND a.due_at >= ? AND a.due_at < ?""",
             Integer.class, department, Date.valueOf(day), Date.valueOf(day.plusDays(1)));
     }
 
     private long requestCancellation(LocalDate day) {
-        try (McpSyncClient client = agent(login("reception.omar"))) {
+        try (McpSyncClient client = agent(login("clerk.omar"))) {
             McpSchema.CallToolResult result = client.callTool(
-                new McpSchema.CallToolRequest("cancel_appointments", Map.of("date", day.toString())));
+                new McpSchema.CallToolRequest("cancel_invoices", Map.of("date", day.toString())));
             String text = ((McpSchema.TextContent) result.content().get(0)).text();
             Matcher m = ID.matcher(text);
             assertThat(m.find()).as(text).isTrue();
@@ -94,46 +94,46 @@ class ApprovalFlowTest extends GatewayIntegrationTest {
 
     @Test
     void approvedCancellationRunsOnceAndOnlyInTheRequestersDepartment() {
-        LocalDate day = cardioDaysWithAppointments().get(0);
-        int neuroBefore = scheduled("NEURO", day);
+        LocalDate day = acctDaysWithInvoices().get(0);
+        int neuroBefore = pending("TREAS", day);
         long id = requestCancellation(day);
 
-        assertThat(scheduled("CARDIO", day)).as("nothing happens while pending").isPositive();
-        assertThat(status("reception.omar", id)).containsEntry("status", "PENDING");
+        assertThat(pending("ACCT", day)).as("nothing happens while pending").isPositive();
+        assertThat(status("clerk.omar", id)).containsEntry("status", "PENDING");
 
         assertThat(decide("admin.youssef", id, "approve")).isEqualTo(200);
 
-        assertThat(scheduled("CARDIO", day)).isZero();
-        assertThat(scheduled("NEURO", day)).as("scope stored with the request").isEqualTo(neuroBefore);
-        assertThat(status("reception.omar", id)).containsEntry("status", "EXECUTED").containsKey("result");
+        assertThat(pending("ACCT", day)).isZero();
+        assertThat(pending("TREAS", day)).as("scope stored with the request").isEqualTo(neuroBefore);
+        assertThat(status("clerk.omar", id)).containsEntry("status", "EXECUTED").containsKey("result");
         assertThat(decide("admin.nadia", id, "approve")).as("an approval cannot be used twice").isEqualTo(409);
     }
 
     @Test
     void refusedRequestNeverRuns() {
-        LocalDate day = cardioDaysWithAppointments().get(1);
-        int before = scheduled("CARDIO", day);
+        LocalDate day = acctDaysWithInvoices().get(1);
+        int before = pending("ACCT", day);
         long id = requestCancellation(day);
 
         assertThat(decide("admin.youssef", id, "refuse")).isEqualTo(200);
 
-        assertThat(scheduled("CARDIO", day)).isEqualTo(before);
-        assertThat(status("reception.omar", id)).containsEntry("status", "REFUSED");
+        assertThat(pending("ACCT", day)).isEqualTo(before);
+        assertThat(status("clerk.omar", id)).containsEntry("status", "REFUSED");
         assertThat(decide("admin.nadia", id, "approve")).isEqualTo(409);
     }
 
     @Test
     void noAnswerInTimeMeansRefused() {
-        LocalDate day = cardioDaysWithAppointments().get(2);
-        int before = scheduled("CARDIO", day);
+        LocalDate day = acctDaysWithInvoices().get(2);
+        int before = pending("ACCT", day);
         long id = requestCancellation(day);
         gatewayDb.update("UPDATE approval_request SET expires_at = SYSTIMESTAMP - INTERVAL '1' MINUTE WHERE id = ?", id);
 
         assertThat(approvals.expirePending()).isGreaterThanOrEqualTo(1);
 
-        assertThat(status("reception.omar", id)).containsEntry("status", "EXPIRED");
+        assertThat(status("clerk.omar", id)).containsEntry("status", "EXPIRED");
         assertThat(decide("admin.youssef", id, "approve")).isEqualTo(409);
-        assertThat(scheduled("CARDIO", day)).isEqualTo(before);
+        assertThat(pending("ACCT", day)).isEqualTo(before);
     }
 
     @Test
@@ -141,7 +141,7 @@ class ApprovalFlowTest extends GatewayIntegrationTest {
         String text;
         try (McpSyncClient client = agent(login("admin.youssef"))) {
             McpSchema.CallToolResult result = client.callTool(
-                new McpSchema.CallToolRequest("export_report", Map.of("reportType", "APPOINTMENTS")));
+                new McpSchema.CallToolRequest("export_report", Map.of("reportType", "INVOICES")));
             text = ((McpSchema.TextContent) result.content().get(0)).text();
         }
         Matcher m = ID.matcher(text);
@@ -155,10 +155,10 @@ class ApprovalFlowTest extends GatewayIntegrationTest {
 
     @Test
     void storedCallChangedAfterTheRequestIsNotExecuted() {
-        List<LocalDate> days = cardioDaysWithAppointments();
+        List<LocalDate> days = acctDaysWithInvoices();
         LocalDate requested = days.get(3);
         LocalDate other = days.get(4);
-        int otherBefore = scheduled("CARDIO", other);
+        int otherBefore = pending("ACCT", other);
         long id = requestCancellation(requested);
 
         // Someone with database access swaps the date after the request was made.
@@ -166,15 +166,15 @@ class ApprovalFlowTest extends GatewayIntegrationTest {
             requested.toString(), other.toString(), id);
 
         assertThat(decide("admin.youssef", id, "approve")).isEqualTo(200);
-        assertThat(status("reception.omar", id)).containsEntry("status", "FAILED");
-        assertThat(scheduled("CARDIO", other)).isEqualTo(otherBefore);
+        assertThat(status("clerk.omar", id)).containsEntry("status", "FAILED");
+        assertThat(pending("ACCT", other)).isEqualTo(otherBefore);
     }
 
     @Test
     void usersOnlySeeTheirOwnRequests() {
-        long id = requestCancellation(cardioDaysWithAppointments().get(5));
+        long id = requestCancellation(acctDaysWithInvoices().get(5));
 
-        assertThat(status("nurse.salma", id)).containsKey("error");
-        assertThat(status("reception.omar", id)).containsEntry("status", "PENDING");
+        assertThat(status("accountant.salma", id)).containsKey("error");
+        assertThat(status("clerk.omar", id)).containsEntry("status", "PENDING");
     }
 }

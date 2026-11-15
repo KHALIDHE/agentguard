@@ -31,9 +31,9 @@ public class AppUser {
     @Column(length = 16)
     private String department;
 
-    /** Links a doctor to their row in the hospital's STAFF table, for "my patients" scoping. */
-    @Column(name = "hospital_staff_id")
-    private Long hospitalStaffId;
+    /** Links a manager to their row in the finance's EMPLOYEE table, for "my suppliers" scoping. */
+    @Column(name = "finance_employee_id")
+    private Long financeEmployeeId;
 
     @Column(nullable = false)
     private boolean active;
@@ -45,12 +45,12 @@ public class AppUser {
         // for JPA
     }
 
-    public AppUser(String username, String passwordHash, Role role, String department, Long hospitalStaffId) {
+    public AppUser(String username, String passwordHash, Role role, String department, Long financeEmployeeId) {
         this.username = username;
         this.passwordHash = passwordHash;
         this.role = role;
         this.department = department;
-        this.hospitalStaffId = hospitalStaffId;
+        this.financeEmployeeId = financeEmployeeId;
         this.active = true;
         this.createdAt = Instant.now();
     }
@@ -60,6 +60,6 @@ public class AppUser {
     public String getPasswordHash() { return passwordHash; }
     public Role getRole() { return role; }
     public String getDepartment() { return department; }
-    public Long getHospitalStaffId() { return hospitalStaffId; }
+    public Long getFinanceEmployeeId() { return financeEmployeeId; }
     public boolean isActive() { return active; }
 }

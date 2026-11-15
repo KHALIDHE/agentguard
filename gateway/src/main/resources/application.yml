@@ -53,8 +53,8 @@ agentguard:
   content:
     quarantine: false           # true: withhold flagged documents instead of labelling them
   upstream:
-    hospital-tools-url: ${HOSPITAL_TOOLS_URL:http://localhost:8081}
-    service-token: ${HOSPITAL_SERVICE_TOKEN:}
+    finance-tools-url: ${FINANCE_TOOLS_URL:http://localhost:8081}
+    service-token: ${FINANCE_SERVICE_TOKEN:}
 
 server:
   port: 8080

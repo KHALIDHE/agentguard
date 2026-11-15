@@ -39,7 +39,7 @@ class SqlGuardTest {
 
     @Test
     void rowLimitIsAlwaysForcedEvenWhenTheQueryAsksForMore() {
-        SqlGuard.Result result = SqlGuard.check("SELECT id FROM patient FETCH FIRST 100000 ROWS ONLY", 20);
+        SqlGuard.Result result = SqlGuard.check("SELECT id FROM supplier FETCH FIRST 100000 ROWS ONLY", 20);
 
         assertThat(result.accepted()).isTrue();
         assertThat(result.rewrittenSql()).startsWith("SELECT * FROM (").endsWith(") FETCH FIRST 20 ROWS ONLY");

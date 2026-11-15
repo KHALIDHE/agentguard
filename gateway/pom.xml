@@ -133,9 +133,9 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<!-- End-to-end tests start the real hospital tools in the same JVM. -->
+			<!-- End-to-end tests start the real finance tools in the same JVM. -->
 			<groupId>dev.agentguard</groupId>
-			<artifactId>hospital-tools</artifactId>
+			<artifactId>finance-tools</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 			<scope>test</scope>
 		</dependency>

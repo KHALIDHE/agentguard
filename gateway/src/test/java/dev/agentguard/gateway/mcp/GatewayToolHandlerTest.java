@@ -43,13 +43,13 @@ class GatewayToolHandlerTest {
     }
 
     {
-        policies.replaceRules(List.of(new PolicyRule("nurse-search", 1, Set.of(Role.NURSE), Set.of("search_patients"),
+        policies.replaceRules(List.of(new PolicyRule("accountant-search", 1, Set.of(Role.ACCOUNTANT), Set.of("search_suppliers"),
             Condition.ALWAYS, DecisionType.ALLOW, RowScope.SAME_DEPARTMENT, null, "test")));
     }
 
     private final McpSchema.Tool tool = ToolRegistrar.published(
-        McpSchema.Tool.builder().name("search_patients").inputSchema(Map.of("type", "object")).build(),
-        ToolCatalog.find("search_patients").orElseThrow());
+        McpSchema.Tool.builder().name("search_suppliers").inputSchema(Map.of("type", "object")).build(),
+        ToolCatalog.find("search_suppliers").orElseThrow());
 
     private static McpSyncServerExchange exchangeWith(Object identity) {
         McpSyncServerExchange exchange = mock(McpSyncServerExchange.class);
@@ -59,12 +59,12 @@ class GatewayToolHandlerTest {
         return exchange;
     }
 
-    private static final UserIdentity NURSE = new UserIdentity(3, "nurse.salma", Role.NURSE, "CARDIO", null);
+    private static final UserIdentity ACCOUNTANT = new UserIdentity(3, "accountant.salma", Role.ACCOUNTANT, "ACCT", null);
 
     @Test
     void callWithoutIdentityNeverReachesUpstream() {
         var result = handler.handle(tool, exchangeWith(null),
-            new McpSchema.CallToolRequest("search_patients", Map.of("name", "a")));
+            new McpSchema.CallToolRequest("search_suppliers", Map.of("name", "a")));
 
         assertThat(result.isError()).isTrue();
         verify(upstream, never()).call(any(), anyMap());
@@ -72,8 +72,8 @@ class GatewayToolHandlerTest {
 
     @Test
     void scopeArgumentNeverReachesUpstream() {
-        var result = handler.handle(tool, exchangeWith(NURSE),
-            new McpSchema.CallToolRequest("search_patients", Map.of("name", "a", "scopeDepartment", "NEURO")));
+        var result = handler.handle(tool, exchangeWith(ACCOUNTANT),
+            new McpSchema.CallToolRequest("search_suppliers", Map.of("name", "a", "scopeDepartment", "TREAS")));
 
         assertThat(result.isError()).isTrue();
         assertThat(((McpSchema.TextContent) result.content().get(0)).text())
@@ -84,10 +84,10 @@ class GatewayToolHandlerTest {
     @Test
     void allowedCallIsForwardedWithTheScopeFromTheIdentity() {
         McpSchema.CallToolResult upstreamResult = McpSchema.CallToolResult.builder().addTextContent("[]").build();
-        when(upstream.call("search_patients", Map.of("name", "a", "scopeDepartment", "CARDIO"))).thenReturn(upstreamResult);
+        when(upstream.call("search_suppliers", Map.of("name", "a", "scopeDepartment", "ACCT"))).thenReturn(upstreamResult);
 
-        var result = handler.handle(tool, exchangeWith(NURSE),
-            new McpSchema.CallToolRequest("search_patients", Map.of("name", "a")));
+        var result = handler.handle(tool, exchangeWith(ACCOUNTANT),
+            new McpSchema.CallToolRequest("search_suppliers", Map.of("name", "a")));
 
         assertThat(result.isError()).isNotEqualTo(Boolean.TRUE);
         assertThat(((McpSchema.TextContent) result.content().get(0)).text()).isEqualTo("[]");
@@ -99,7 +99,7 @@ class GatewayToolHandlerTest {
         UserIdentity hr = new UserIdentity(5, "hr", Role.HR, null, null);
 
         var result = handler.handle(tool, exchangeWith(hr),
-            new McpSchema.CallToolRequest("search_patients", Map.of("name", "a")));
+            new McpSchema.CallToolRequest("search_suppliers", Map.of("name", "a")));
 
         assertThat(result.isError()).isTrue();
         assertThat(((McpSchema.TextContent) result.content().get(0)).text()).contains("default-deny");

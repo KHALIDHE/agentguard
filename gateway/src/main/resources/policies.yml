@@ -1,10 +1,10 @@
-# AgentGuard policy for the demo hospital.
+# AgentGuard policy for the demo finance company.
 #
 # Rules are checked by ascending priority; the first rule that matches decides.
 # Anything not matched by a rule is DENIED (rule id "default-deny").
 #
 # decision:  ALLOW | DENY | MASK | REQUIRE_APPROVAL
-# scope:     NONE | SAME_DEPARTMENT | OWN_PATIENTS   (which rows may come back)
+# scope:     NONE | SAME_DEPARTMENT | OWN_SUPPLIERS   (which rows may come back)
 # when:      { argument: x, in: [..] } | { argument: x, gt: n } | { argument: x, present: true }
 #            | { all: [..] } | { any: [..] } | { not: {..} }
 
@@ -14,14 +14,14 @@ rules:
   - id: salaries-hr
     priority: 10
     roles: [HR]
-    tools: [get_staff_salaries]
+    tools: [get_employee_salaries]
     decision: ALLOW
     reason: "HR manages salaries."
 
   - id: salaries-everyone-else
     priority: 11
-    roles: [DOCTOR, NURSE, RECEPTIONIST, ADMIN]
-    tools: [get_staff_salaries]
+    roles: [FINANCE_MANAGER, ACCOUNTANT, CLERK, ADMIN]
+    tools: [get_employee_salaries]
     decision: DENY
     reason: "Salary data is restricted to HR."
 
@@ -34,92 +34,101 @@ rules:
     reason: "Administrators may run read-only queries; the SQL guard checks every statement."
 
   # --- Exports and bulk writes: a human approves first -------------------------
-  - id: export-patients-admin
+  - id: export-suppliers-admin
     priority: 30
     roles: [ADMIN]
     tools: [export_report]
     decision: REQUIRE_APPROVAL
-    reason: "Bulk exports leave the hospital's systems and need a second person's approval."
+    reason: "Bulk exports leave the company's systems and need a second person's approval."
 
-  - id: export-appointments-doctor
+  - id: export-invoices-manager
     priority: 31
-    roles: [DOCTOR]
+    roles: [FINANCE_MANAGER]
     tools: [export_report]
-    when: { argument: reportType, in: [APPOINTMENTS] }
+    when: { argument: reportType, in: [INVOICES] }
     scope: SAME_DEPARTMENT
     decision: REQUIRE_APPROVAL
-    reason: "Doctors may export their department's appointments after approval."
+    reason: "Managers may export their department's invoices after approval."
 
-  - id: cancel-day-reception
+  - id: cancel-day-clerk
     priority: 40
-    roles: [RECEPTIONIST, ADMIN]
-    tools: [cancel_appointments]
+    roles: [CLERK, ADMIN]
+    tools: [cancel_invoices]
     scope: SAME_DEPARTMENT
     decision: REQUIRE_APPROVAL
-    reason: "Cancelling a whole day affects many patients and needs approval."
+    reason: "Cancelling a whole day of invoices affects many suppliers and needs approval."
 
-  # --- Patients ----------------------------------------------------------------
-  - id: patients-doctor
+  # --- Suppliers ----------------------------------------------------------------
+  - id: suppliers-manager
     priority: 50
-    roles: [DOCTOR]
-    tools: [search_patients, get_patient_record]
+    roles: [FINANCE_MANAGER]
+    tools: [search_suppliers, get_supplier_record]
     scope: SAME_DEPARTMENT
     decision: ALLOW
-    reason: "Doctors see full records of patients in their department."
+    reason: "Managers see full records of suppliers in their department."
 
-  - id: patients-nurse
+  - id: suppliers-accountant
     priority: 51
-    roles: [NURSE]
-    tools: [search_patients, get_patient_record]
+    roles: [ACCOUNTANT]
+    tools: [search_suppliers, get_supplier_record]
     scope: SAME_DEPARTMENT
     decision: MASK
-    maskProfile: nurse-patient
-    reason: "Nurses see patients of their department, without national ID, address or diagnosis."
+    maskProfile: accountant-supplier
+    reason: "Accountants see suppliers of their department, without address, and with tax ID and IBAN masked."
 
-  - id: patients-search-reception
+  - id: suppliers-search-clerk
     priority: 52
-    roles: [RECEPTIONIST]
-    tools: [search_patients]
+    roles: [CLERK]
+    tools: [search_suppliers]
     scope: SAME_DEPARTMENT
     decision: MASK
-    maskProfile: reception-patient
-    reason: "Reception can find a patient by name to book an appointment, nothing more."
+    maskProfile: clerk-supplier
+    reason: "Clerks can find a supplier by name to record an invoice, nothing more."
 
-  - id: patients-record-reception
+  - id: suppliers-record-clerk
     priority: 53
-    roles: [RECEPTIONIST]
-    tools: [get_patient_record]
+    roles: [CLERK]
+    tools: [get_supplier_record]
     decision: DENY
-    reason: "Clinical records are for clinical staff."
+    reason: "Supplier bank details are for finance employees."
 
-  # --- Appointments --------------------------------------------------------------
-  - id: appointments-read-clinical
+  # --- Invoices --------------------------------------------------------------
+  - id: pay-large-needs-approval
+    priority: 59
+    roles: [FINANCE_MANAGER, CLERK]
+    tools: [update_invoice]
+    when: { argument: amountMad, gt: 10000 }
+    scope: SAME_DEPARTMENT
+    decision: REQUIRE_APPROVAL
+    reason: "Payments above 10,000 MAD need a second person's approval."
+
+  - id: invoices-read-finance
     priority: 60
-    roles: [DOCTOR, NURSE, RECEPTIONIST]
-    tools: [list_appointments]
+    roles: [FINANCE_MANAGER, ACCOUNTANT, CLERK]
+    tools: [list_invoices]
     scope: SAME_DEPARTMENT
     decision: ALLOW
-    reason: "Department staff see their department's schedule."
+    reason: "Department staff see their department's invoices."
 
-  - id: appointments-update
+  - id: invoices-update
     priority: 61
-    roles: [DOCTOR, RECEPTIONIST]
-    tools: [update_appointment]
+    roles: [FINANCE_MANAGER, CLERK]
+    tools: [update_invoice]
     scope: SAME_DEPARTMENT
     decision: ALLOW
-    reason: "Doctors and reception may change one appointment in their department."
+    reason: "Managers and clerks may change one invoice in their department."
 
   # --- Shared, non-sensitive ---------------------------------------------------------
   - id: directory-everyone
     priority: 90
-    roles: [DOCTOR, NURSE, RECEPTIONIST, HR, ADMIN]
-    tools: [get_staff_directory]
+    roles: [FINANCE_MANAGER, ACCOUNTANT, CLERK, HR, ADMIN]
+    tools: [get_employee_directory]
     decision: ALLOW
-    reason: "The staff directory is internal but not sensitive."
+    reason: "The employee directory is internal but not sensitive."
 
   - id: documents-everyone
     priority: 91
-    roles: [DOCTOR, NURSE, RECEPTIONIST, HR, ADMIN]
+    roles: [FINANCE_MANAGER, ACCOUNTANT, CLERK, HR, ADMIN]
     tools: [get_document]
     decision: ALLOW
-    reason: "Internal documents are readable by staff; their content is treated as untrusted."
+    reason: "Internal documents are readable by employees; their content is treated as untrusted."

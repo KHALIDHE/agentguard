@@ -42,28 +42,28 @@ class RateLimiterTest {
 
     @Test
     void limitTriggersAfterTheBudget() {
-        assertThat(limiter.tryAcquire("nurse", "search_patients")).isTrue();
-        assertThat(limiter.tryAcquire("nurse", "search_patients")).isTrue();
-        assertThat(limiter.tryAcquire("nurse", "search_patients")).isTrue();
-        assertThat(limiter.tryAcquire("nurse", "search_patients")).isFalse();
+        assertThat(limiter.tryAcquire("accountant", "search_suppliers")).isTrue();
+        assertThat(limiter.tryAcquire("accountant", "search_suppliers")).isTrue();
+        assertThat(limiter.tryAcquire("accountant", "search_suppliers")).isTrue();
+        assertThat(limiter.tryAcquire("accountant", "search_suppliers")).isFalse();
     }
 
     @Test
     void budgetRefillsOverTime() {
         for (int i = 0; i < 3; i++) {
-            limiter.tryAcquire("nurse", "search_patients");
+            limiter.tryAcquire("accountant", "search_suppliers");
         }
-        assertThat(limiter.tryAcquire("nurse", "search_patients")).isFalse();
+        assertThat(limiter.tryAcquire("accountant", "search_suppliers")).isFalse();
 
         clock.advance(Duration.ofSeconds(20)); // 3 per minute = one every 20 seconds
-        assertThat(limiter.tryAcquire("nurse", "search_patients")).isTrue();
-        assertThat(limiter.tryAcquire("nurse", "search_patients")).isFalse();
+        assertThat(limiter.tryAcquire("accountant", "search_suppliers")).isTrue();
+        assertThat(limiter.tryAcquire("accountant", "search_suppliers")).isFalse();
 
         clock.advance(Duration.ofMinutes(5)); // never more than the full budget
-        assertThat(limiter.tryAcquire("nurse", "search_patients")).isTrue();
-        assertThat(limiter.tryAcquire("nurse", "search_patients")).isTrue();
-        assertThat(limiter.tryAcquire("nurse", "search_patients")).isTrue();
-        assertThat(limiter.tryAcquire("nurse", "search_patients")).isFalse();
+        assertThat(limiter.tryAcquire("accountant", "search_suppliers")).isTrue();
+        assertThat(limiter.tryAcquire("accountant", "search_suppliers")).isTrue();
+        assertThat(limiter.tryAcquire("accountant", "search_suppliers")).isTrue();
+        assertThat(limiter.tryAcquire("accountant", "search_suppliers")).isFalse();
     }
 
     @Test
@@ -71,7 +71,7 @@ class RateLimiterTest {
         assertThat(limiter.tryAcquire("admin", "run_query")).isTrue();
         assertThat(limiter.tryAcquire("admin", "run_query")).isFalse();
 
-        assertThat(limiter.tryAcquire("admin", "search_patients")).isTrue();
+        assertThat(limiter.tryAcquire("admin", "search_suppliers")).isTrue();
         assertThat(limiter.tryAcquire("other-admin", "run_query")).isTrue();
     }
 }

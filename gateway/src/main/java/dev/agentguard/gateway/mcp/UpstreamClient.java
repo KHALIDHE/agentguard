@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * The gateway's MCP client towards the hospital tools. It authenticates with
+ * The gateway's MCP client towards the finance tools. It authenticates with
  * the service token, which agents never see. The connection is opened on
  * first use and reopened if it breaks.
  */
@@ -27,7 +27,7 @@ public class UpstreamClient {
     private final String serviceToken;
     private McpSyncClient client;
 
-    public UpstreamClient(@Value("${agentguard.upstream.hospital-tools-url}") String baseUrl,
+    public UpstreamClient(@Value("${agentguard.upstream.finance-tools-url}") String baseUrl,
                           @Value("${agentguard.upstream.service-token:}") String serviceToken) {
         this.baseUrl = baseUrl;
         this.serviceToken = serviceToken;

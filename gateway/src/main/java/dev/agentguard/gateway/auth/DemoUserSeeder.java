@@ -15,22 +15,22 @@ import org.springframework.transaction.annotation.Transactional;
  * Without that variable no user is created, so a real deployment never gets
  * accounts with a known password.
  *
- * Staff ids match the hospital seed: the first three staff rows of each
- * department are its doctors (CARDIO 1-3, NEURO 8-10).
+ * Employee ids match the finance seed: the first three employee rows of each
+ * department are its managers (ACCT 1-3, TREAS 8-10).
  */
 @Component
 public class DemoUserSeeder implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DemoUserSeeder.class);
 
-    record Demo(String username, Role role, String department, Long staffId) {}
+    record Demo(String username, Role role, String department, Long employeeId) {}
 
     static final List<Demo> DEMO_USERS = List.of(
-        new Demo("dr.amrani", Role.DOCTOR, "CARDIO", 1L),
-        new Demo("dr.tazi", Role.DOCTOR, "NEURO", 8L),
-        new Demo("nurse.salma", Role.NURSE, "CARDIO", null),
-        new Demo("nurse.hajar", Role.NURSE, "NEURO", null),
-        new Demo("reception.omar", Role.RECEPTIONIST, "CARDIO", null),
+        new Demo("fm.amrani", Role.FINANCE_MANAGER, "ACCT", 1L),
+        new Demo("fm.tazi", Role.FINANCE_MANAGER, "TREAS", 8L),
+        new Demo("accountant.salma", Role.ACCOUNTANT, "ACCT", null),
+        new Demo("accountant.hajar", Role.ACCOUNTANT, "TREAS", null),
+        new Demo("clerk.omar", Role.CLERK, "ACCT", null),
         new Demo("hr.imane", Role.HR, null, null),
         new Demo("admin.youssef", Role.ADMIN, null, null),
         // A second administrator: approvals need someone other than the requester.
@@ -58,7 +58,7 @@ public class DemoUserSeeder implements ApplicationRunner {
         int created = 0;
         for (Demo d : DEMO_USERS) {
             if (!users.existsByUsername(d.username())) {
-                users.save(new AppUser(d.username(), hash, d.role(), d.department(), d.staffId()));
+                users.save(new AppUser(d.username(), hash, d.role(), d.department(), d.employeeId()));
                 created++;
             }
         }

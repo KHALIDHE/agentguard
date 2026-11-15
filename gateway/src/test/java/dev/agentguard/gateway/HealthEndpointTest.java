@@ -22,10 +22,10 @@ class HealthEndpointTest extends GatewayIntegrationTest {
     }
 
     @Test
-    void gatewayUserCannotReadHospitalTables() {
-        // Two schemas, two users: the gateway's database account has no grant on HOSPITAL.
+    void gatewayUserCannotReadFinanceTables() {
+        // Two schemas, two users: the gateway's database account has no grant on FINANCE.
         org.assertj.core.api.Assertions.assertThatThrownBy(
-                () -> jdbc.queryForObject("SELECT COUNT(*) FROM hospital.staff", Integer.class))
+                () -> jdbc.queryForObject("SELECT COUNT(*) FROM finance.employee", Integer.class))
             .rootCause().hasMessageContaining("ORA-00942");
     }
 

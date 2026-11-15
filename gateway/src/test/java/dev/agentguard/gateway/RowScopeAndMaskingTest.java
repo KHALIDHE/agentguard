@@ -33,9 +33,9 @@ class RowScopeAndMaskingTest extends GatewayIntegrationTest {
         }
     }
 
-    private static long patientIn(String department) {
-        return hospitalDb().queryForObject("""
-            SELECT MIN(p.id) FROM patient p JOIN department d ON d.id = p.department_id WHERE d.code = ?""",
+    private static long supplierIn(String department) {
+        return financeDb().queryForObject("""
+            SELECT MIN(p.id) FROM supplier p JOIN department d ON d.id = p.department_id WHERE d.code = ?""",
             Long.class, department);
     }
 
@@ -60,53 +60,53 @@ class RowScopeAndMaskingTest extends GatewayIntegrationTest {
     }
 
     @Test
-    void nurseSearchReturnsOnlyHerDepartment() {
-        List<Map<String, Object>> found = rows(call("nurse.salma", "search_patients", Map.of("limit", 100)));
-        Integer cardioPatients = hospitalDb().queryForObject("""
-            SELECT COUNT(*) FROM patient p JOIN department d ON d.id = p.department_id WHERE d.code = 'CARDIO'""",
+    void accountantSearchReturnsOnlyHerDepartment() {
+        List<Map<String, Object>> found = rows(call("accountant.salma", "search_suppliers", Map.of("limit", 100)));
+        Integer acctSuppliers = financeDb().queryForObject("""
+            SELECT COUNT(*) FROM supplier p JOIN department d ON d.id = p.department_id WHERE d.code = 'ACCT'""",
             Integer.class);
 
-        assertThat(found).isNotEmpty().allSatisfy(r -> assertThat(r).containsEntry("DEPARTMENT", "CARDIO"));
-        assertThat(found).hasSize(Math.min(100, cardioPatients));
+        assertThat(found).isNotEmpty().allSatisfy(r -> assertThat(r).containsEntry("DEPARTMENT", "ACCT"));
+        assertThat(found).hasSize(Math.min(100, acctSuppliers));
     }
 
     @Test
-    void nurseAskingForAnotherDepartmentsPatientGetsNothing() {
-        Map<String, Object> result = record(call("nurse.salma", "get_patient_record",
-            Map.of("patientId", patientIn("NEURO"))));
+    void accountantAskingForAnotherDepartmentsSupplierGetsNothing() {
+        Map<String, Object> result = record(call("accountant.salma", "get_supplier_record",
+            Map.of("supplierId", supplierIn("TREAS"))));
 
         assertThat(result).containsEntry("found", false);
     }
 
     @Test
-    void nurseRecordHasNoAddressNoDiagnosisAndMaskedIdentifiers() {
-        Map<String, Object> result = record(call("nurse.salma", "get_patient_record",
-            Map.of("patientId", patientIn("CARDIO"))));
+    void accountantRecordHasNoAddressNoIbanAndMaskedIdentifiers() {
+        Map<String, Object> result = record(call("accountant.salma", "get_supplier_record",
+            Map.of("supplierId", supplierIn("ACCT"))));
 
-        assertThat(result).containsKey("FULL_NAME").doesNotContainKeys("ADDRESS", "DIAGNOSIS");
-        assertThat((String) result.get("NATIONAL_ID")).startsWith("******");
+        assertThat(result).containsKey("FULL_NAME").doesNotContainKeys("ADDRESS", "IBAN");
+        assertThat((String) result.get("TAX_ID")).startsWith("******");
     }
 
     @Test
-    void doctorSeesTheFullRecordOfHisDepartment() {
-        Map<String, Object> result = record(call("dr.amrani", "get_patient_record",
-            Map.of("patientId", patientIn("CARDIO"))));
+    void managerSeesTheFullRecordOfHisDepartment() {
+        Map<String, Object> result = record(call("fm.amrani", "get_supplier_record",
+            Map.of("supplierId", supplierIn("ACCT"))));
 
-        assertThat(result).containsKeys("DIAGNOSIS", "ADDRESS");
-        assertThat((String) result.get("NATIONAL_ID")).startsWith("ZZ");
+        assertThat(result).containsKeys("IBAN", "ADDRESS");
+        assertThat((String) result.get("TAX_ID")).startsWith("ZZ");
     }
 
     @Test
-    void receptionSeesOnlyBookingFields() {
-        List<Map<String, Object>> found = rows(call("reception.omar", "search_patients", Map.of("limit", 5)));
+    void clerkSeesOnlyBookingFields() {
+        List<Map<String, Object>> found = rows(call("clerk.omar", "search_suppliers", Map.of("limit", 5)));
 
         assertThat(found).isNotEmpty().allSatisfy(r ->
-            assertThat(r.keySet()).isSubsetOf("ID", "FULL_NAME", "DEPARTMENT", "DOCTOR_ID", "ADMITTED_ON"));
+            assertThat(r.keySet()).isSubsetOf("ID", "FULL_NAME", "DEPARTMENT", "MANAGER_ID", "ONBOARDED_ON"));
     }
 
     @Test
     void malformedArgumentsAreRefusedBeforeAnyQuery() {
-        McpSchema.CallToolResult result = call("dr.amrani", "list_appointments", Map.of("date", "2026-02-31"));
+        McpSchema.CallToolResult result = call("fm.amrani", "list_invoices", Map.of("date", "2026-02-31"));
 
         assertThat(result.isError()).isTrue();
         assertThat(text(result)).contains("must be a date");
@@ -115,7 +115,7 @@ class RowScopeAndMaskingTest extends GatewayIntegrationTest {
     @Test
     void adminAggregateQueryRunsWithAForcedLimit() {
         McpSchema.CallToolResult result = call("admin.youssef", "run_query", Map.of(
-            "sql", "SELECT department_id, COUNT(*) AS patients FROM patient GROUP BY department_id", "maxRows", 3));
+            "sql", "SELECT department_id, COUNT(*) AS suppliers FROM supplier GROUP BY department_id", "maxRows", 3));
 
         assertThat(result.isError()).isNotEqualTo(Boolean.TRUE);
         assertThat(rows(result)).hasSize(3);
@@ -123,10 +123,10 @@ class RowScopeAndMaskingTest extends GatewayIntegrationTest {
 
     @Test
     void sqlGuardRefusesSensitiveColumnsAndWrites() {
-        assertThat(text(call("admin.youssef", "run_query", Map.of("sql", "SELECT salary_mad FROM staff"))))
+        assertThat(text(call("admin.youssef", "run_query", Map.of("sql", "SELECT salary_mad FROM employee"))))
             .contains("SQL refused: column SALARY_MAD is not allowed");
-        assertThat(text(call("admin.youssef", "run_query", Map.of("sql", "DELETE FROM patient"))))
+        assertThat(text(call("admin.youssef", "run_query", Map.of("sql", "DELETE FROM supplier"))))
             .contains("SQL refused: only SELECT is allowed");
-        assertThat(hospitalDb().queryForObject("SELECT COUNT(*) FROM patient", Integer.class)).isEqualTo(300);
+        assertThat(financeDb().queryForObject("SELECT COUNT(*) FROM supplier", Integer.class)).isEqualTo(300);
     }
 }

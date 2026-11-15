@@ -1,7 +1,7 @@
 package dev.agentguard.gateway;
 
-import dev.agentguard.hospitaltools.HospitalToolsApplication;
-import dev.agentguard.testsupport.HospitalToolsTestSecurity;
+import dev.agentguard.financetools.FinanceToolsApplication;
+import dev.agentguard.testsupport.FinanceToolsTestSecurity;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
@@ -25,10 +25,10 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * End-to-end setup, the same shape as production:
  *
- *   test MCP client --(user JWT)--> gateway --(service token)--> hospital tools --> Oracle
+ *   test MCP client --(user JWT)--> gateway --(service token)--> finance tools --> Oracle
  *
- * One Oracle container with two database users (agentguard, hospital), and
- * the real hospital-tools application started in this JVM on a random port.
+ * One Oracle container with two database users (agentguard, finance), and
+ * the real finance-tools application started in this JVM on a random port.
  * Subclasses share all of it.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
@@ -36,8 +36,8 @@ import org.testcontainers.utility.DockerImageName;
     "agentguard.demo.user-password=" + GatewayIntegrationTest.DEMO_PASSWORD,
     "agentguard.upstream.service-token=" + GatewayIntegrationTest.SERVICE_TOKEN,
     "agentguard.limits.calls-per-minute=1000",
-    "agentguard.limits.per-tool.get_staff_directory=1000",
-    "agentguard.limits.per-tool.list_appointments=5",
+    "agentguard.limits.per-tool.get_employee_directory=1000",
+    "agentguard.limits.per-tool.list_invoices=5",
 })
 public abstract class GatewayIntegrationTest {
 
@@ -51,7 +51,7 @@ public abstract class GatewayIntegrationTest {
         .withStartupTimeout(Duration.ofMinutes(5))
         .withReuse(true);
 
-    private static ConfigurableApplicationContext hospitalTools;
+    private static ConfigurableApplicationContext financeTools;
 
     static {
         ORACLE.start();
@@ -62,31 +62,31 @@ public abstract class GatewayIntegrationTest {
         registry.add("spring.datasource.url", ORACLE::getJdbcUrl);
         registry.add("spring.datasource.username", ORACLE::getUsername);
         registry.add("spring.datasource.password", ORACLE::getPassword);
-        registry.add("agentguard.upstream.hospital-tools-url", GatewayIntegrationTest::startHospitalTools);
+        registry.add("agentguard.upstream.finance-tools-url", GatewayIntegrationTest::startFinanceTools);
     }
 
-    private static synchronized String startHospitalTools() {
-        if (hospitalTools == null) {
-            createHospitalDatabaseUser();
-            // Command-line arguments, because they outrank the service's own hospital-tools.yml.
-            hospitalTools = new SpringApplicationBuilder(HospitalToolsApplication.class, HospitalToolsTestSecurity.class)
-                .properties(HospitalToolsApplication.DEFAULTS)
+    private static synchronized String startFinanceTools() {
+        if (financeTools == null) {
+            createFinanceDatabaseUser();
+            // Command-line arguments, because they outrank the service's own finance-tools.yml.
+            financeTools = new SpringApplicationBuilder(FinanceToolsApplication.class, FinanceToolsTestSecurity.class)
+                .properties(FinanceToolsApplication.DEFAULTS)
                 .run(
                     "--server.port=0",
                     "--spring.datasource.url=" + ORACLE.getJdbcUrl(),
-                    "--spring.datasource.username=hospital",
-                    "--spring.datasource.password=hospital",
-                    "--hospital.service-token=" + SERVICE_TOKEN);
+                    "--spring.datasource.username=finance",
+                    "--spring.datasource.password=finance",
+                    "--finance.service-token=" + SERVICE_TOKEN);
         }
-        return "http://localhost:" + hospitalTools.getEnvironment().getProperty("local.server.port");
+        return "http://localhost:" + financeTools.getEnvironment().getProperty("local.server.port");
     }
 
     /** Same as infra/oracle-init/01-schemas.sh: a separate schema the gateway's user cannot read. */
-    private static void createHospitalDatabaseUser() {
+    private static void createFinanceDatabaseUser() {
         try (Connection c = DriverManager.getConnection(ORACLE.getJdbcUrl(), "system", ORACLE.getPassword());
              Statement s = c.createStatement()) {
-            s.execute("CREATE USER hospital IDENTIFIED BY hospital QUOTA UNLIMITED ON USERS");
-            s.execute("GRANT CREATE SESSION, CREATE TABLE, CREATE SEQUENCE TO hospital");
+            s.execute("CREATE USER finance IDENTIFIED BY finance QUOTA UNLIMITED ON USERS");
+            s.execute("GRANT CREATE SESSION, CREATE TABLE, CREATE SEQUENCE TO finance");
         } catch (SQLException e) {
             if (e.getErrorCode() != 1920) { // ORA-01920: user already exists (reused container)
                 throw new IllegalStateException(e);
@@ -94,10 +94,10 @@ public abstract class GatewayIntegrationTest {
         }
     }
 
-    /** Direct access to the hospital schema, to find test data independently of the gateway. */
-    protected static org.springframework.jdbc.core.JdbcTemplate hospitalDb() {
+    /** Direct access to the finance schema, to find test data independently of the gateway. */
+    protected static org.springframework.jdbc.core.JdbcTemplate financeDb() {
         return new org.springframework.jdbc.core.JdbcTemplate(
-            new org.springframework.jdbc.datasource.DriverManagerDataSource(ORACLE.getJdbcUrl(), "hospital", "hospital"));
+            new org.springframework.jdbc.datasource.DriverManagerDataSource(ORACLE.getJdbcUrl(), "finance", "finance"));
     }
 
     @LocalServerPort

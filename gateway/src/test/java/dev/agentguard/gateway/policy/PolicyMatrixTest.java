@@ -29,64 +29,64 @@ class PolicyMatrixTest {
 
     private static Decision decide(Role role, String tool, Map<String, Object> args) {
         UserIdentity user = new UserIdentity(1, "someone", role,
-            role == Role.HR || role == Role.ADMIN ? null : "CARDIO", null);
+            role == Role.HR || role == Role.ADMIN ? null : "ACCT", null);
         return engine.evaluate(ToolCallContext.of(user, tool, args));
     }
 
     @ParameterizedTest(name = "{0} calling {1} -> {2}")
     @CsvSource({
         // role,        tool,                 expected
-        "DOCTOR,       search_patients,       ALLOW",
-        "DOCTOR,       get_patient_record,    ALLOW",
-        "DOCTOR,       list_appointments,     ALLOW",
-        "DOCTOR,       update_appointment,    ALLOW",
-        "DOCTOR,       cancel_appointments,   DENY",
-        "DOCTOR,       get_staff_directory,   ALLOW",
-        "DOCTOR,       get_staff_salaries,    DENY",
-        "DOCTOR,       export_report,         DENY",
-        "DOCTOR,       get_document,          ALLOW",
-        "DOCTOR,       run_query,             DENY",
+        "FINANCE_MANAGER,       search_suppliers,       ALLOW",
+        "FINANCE_MANAGER,       get_supplier_record,    ALLOW",
+        "FINANCE_MANAGER,       list_invoices,     ALLOW",
+        "FINANCE_MANAGER,       update_invoice,    ALLOW",
+        "FINANCE_MANAGER,       cancel_invoices,   DENY",
+        "FINANCE_MANAGER,       get_employee_directory,   ALLOW",
+        "FINANCE_MANAGER,       get_employee_salaries,    DENY",
+        "FINANCE_MANAGER,       export_report,         DENY",
+        "FINANCE_MANAGER,       get_document,          ALLOW",
+        "FINANCE_MANAGER,       run_query,             DENY",
 
-        "NURSE,        search_patients,       MASK",
-        "NURSE,        get_patient_record,    MASK",
-        "NURSE,        list_appointments,     ALLOW",
-        "NURSE,        update_appointment,    DENY",
-        "NURSE,        cancel_appointments,   DENY",
-        "NURSE,        get_staff_directory,   ALLOW",
-        "NURSE,        get_staff_salaries,    DENY",
-        "NURSE,        export_report,         DENY",
-        "NURSE,        get_document,          ALLOW",
-        "NURSE,        run_query,             DENY",
+        "ACCOUNTANT,        search_suppliers,       MASK",
+        "ACCOUNTANT,        get_supplier_record,    MASK",
+        "ACCOUNTANT,        list_invoices,     ALLOW",
+        "ACCOUNTANT,        update_invoice,    DENY",
+        "ACCOUNTANT,        cancel_invoices,   DENY",
+        "ACCOUNTANT,        get_employee_directory,   ALLOW",
+        "ACCOUNTANT,        get_employee_salaries,    DENY",
+        "ACCOUNTANT,        export_report,         DENY",
+        "ACCOUNTANT,        get_document,          ALLOW",
+        "ACCOUNTANT,        run_query,             DENY",
 
-        "RECEPTIONIST, search_patients,       MASK",
-        "RECEPTIONIST, get_patient_record,    DENY",
-        "RECEPTIONIST, list_appointments,     ALLOW",
-        "RECEPTIONIST, update_appointment,    ALLOW",
-        "RECEPTIONIST, cancel_appointments,   REQUIRE_APPROVAL",
-        "RECEPTIONIST, get_staff_directory,   ALLOW",
-        "RECEPTIONIST, get_staff_salaries,    DENY",
-        "RECEPTIONIST, export_report,         DENY",
-        "RECEPTIONIST, get_document,          ALLOW",
-        "RECEPTIONIST, run_query,             DENY",
+        "CLERK, search_suppliers,       MASK",
+        "CLERK, get_supplier_record,    DENY",
+        "CLERK, list_invoices,     ALLOW",
+        "CLERK, update_invoice,    ALLOW",
+        "CLERK, cancel_invoices,   REQUIRE_APPROVAL",
+        "CLERK, get_employee_directory,   ALLOW",
+        "CLERK, get_employee_salaries,    DENY",
+        "CLERK, export_report,         DENY",
+        "CLERK, get_document,          ALLOW",
+        "CLERK, run_query,             DENY",
 
-        "HR,           search_patients,       DENY",
-        "HR,           get_patient_record,    DENY",
-        "HR,           list_appointments,     DENY",
-        "HR,           update_appointment,    DENY",
-        "HR,           cancel_appointments,   DENY",
-        "HR,           get_staff_directory,   ALLOW",
-        "HR,           get_staff_salaries,    ALLOW",
+        "HR,           search_suppliers,       DENY",
+        "HR,           get_supplier_record,    DENY",
+        "HR,           list_invoices,     DENY",
+        "HR,           update_invoice,    DENY",
+        "HR,           cancel_invoices,   DENY",
+        "HR,           get_employee_directory,   ALLOW",
+        "HR,           get_employee_salaries,    ALLOW",
         "HR,           export_report,         DENY",
         "HR,           get_document,          ALLOW",
         "HR,           run_query,             DENY",
 
-        "ADMIN,        search_patients,       DENY",
-        "ADMIN,        get_patient_record,    DENY",
-        "ADMIN,        list_appointments,     DENY",
-        "ADMIN,        update_appointment,    DENY",
-        "ADMIN,        cancel_appointments,   REQUIRE_APPROVAL",
-        "ADMIN,        get_staff_directory,   ALLOW",
-        "ADMIN,        get_staff_salaries,    DENY",
+        "ADMIN,        search_suppliers,       DENY",
+        "ADMIN,        get_supplier_record,    DENY",
+        "ADMIN,        list_invoices,     DENY",
+        "ADMIN,        update_invoice,    DENY",
+        "ADMIN,        cancel_invoices,   REQUIRE_APPROVAL",
+        "ADMIN,        get_employee_directory,   ALLOW",
+        "ADMIN,        get_employee_salaries,    DENY",
         "ADMIN,        export_report,         REQUIRE_APPROVAL",
         "ADMIN,        get_document,          ALLOW",
         "ADMIN,        run_query,             ALLOW",
@@ -94,24 +94,24 @@ class PolicyMatrixTest {
     void everyRoleAgainstEveryTool(Role role, String tool, DecisionType expected) {
         Map<String, Object> args = new HashMap<>();
         if (tool.equals(KnownTools.EXPORT_REPORT)) {
-            args.put("reportType", "PATIENTS");
+            args.put("reportType", "SUPPLIERS");
         }
         assertThat(decide(role, tool, args).type()).isEqualTo(expected);
     }
 
     @Test
-    void doctorsMayExportAppointmentsButOnlyWithApproval() {
-        Decision appointments = decide(Role.DOCTOR, KnownTools.EXPORT_REPORT, Map.of("reportType", "APPOINTMENTS"));
-        Decision patients = decide(Role.DOCTOR, KnownTools.EXPORT_REPORT, Map.of("reportType", "PATIENTS"));
+    void managersMayExportInvoicesButOnlyWithApproval() {
+        Decision invoices = decide(Role.FINANCE_MANAGER, KnownTools.EXPORT_REPORT, Map.of("reportType", "INVOICES"));
+        Decision suppliers = decide(Role.FINANCE_MANAGER, KnownTools.EXPORT_REPORT, Map.of("reportType", "SUPPLIERS"));
 
-        assertThat(appointments.type()).isEqualTo(DecisionType.REQUIRE_APPROVAL);
-        assertThat(appointments.ruleId()).isEqualTo("export-appointments-doctor");
-        assertThat(patients.ruleId()).isEqualTo(Decision.DEFAULT_DENY_RULE);
+        assertThat(invoices.type()).isEqualTo(DecisionType.REQUIRE_APPROVAL);
+        assertThat(invoices.ruleId()).isEqualTo("export-invoices-manager");
+        assertThat(suppliers.ruleId()).isEqualTo(Decision.DEFAULT_DENY_RULE);
     }
 
     @Test
     void everyDecisionNamesItsRuleAndReason() {
-        Decision denied = decide(Role.NURSE, KnownTools.GET_STAFF_SALARIES, Map.of());
+        Decision denied = decide(Role.ACCOUNTANT, KnownTools.GET_EMPLOYEE_SALARIES, Map.of());
 
         assertThat(denied.ruleId()).isEqualTo("salaries-everyone-else");
         assertThat(denied.reason()).isEqualTo("Salary data is restricted to HR.");
@@ -119,9 +119,9 @@ class PolicyMatrixTest {
 
     @Test
     void scopeAndMaskTravelWithTheDecision() {
-        Decision nurse = decide(Role.NURSE, KnownTools.GET_PATIENT_RECORD, Map.of("patientId", 1));
+        Decision accountant = decide(Role.ACCOUNTANT, KnownTools.GET_SUPPLIER_RECORD, Map.of("supplierId", 1));
 
-        assertThat(nurse.scope()).isEqualTo(RowScope.SAME_DEPARTMENT);
-        assertThat(nurse.maskProfile()).isEqualTo("nurse-patient");
+        assertThat(accountant.scope()).isEqualTo(RowScope.SAME_DEPARTMENT);
+        assertThat(accountant.maskProfile()).isEqualTo("accountant-supplier");
     }
 }

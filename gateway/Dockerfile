@@ -1,12 +1,8 @@
-# Build context is the repository root, so the shared Maven wrapper is available.
+# Build context is the repository root, so the shared Maven wrapper and parent pom are available.
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /src
-COPY .mvn .mvn
-COPY mvnw pom.xml ./
-COPY gateway/pom.xml gateway/pom.xml
-RUN ./mvnw -B -q -pl gateway dependency:go-offline
-COPY gateway/src gateway/src
-RUN ./mvnw -B -q -pl gateway -DskipTests package
+COPY . .
+RUN ./mvnw -B -q -pl gateway -am -DskipTests package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app

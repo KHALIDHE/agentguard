@@ -12,7 +12,7 @@
     <name>AgentGuard</name>
 
     <modules>
-        <module>hospital-tools</module>
+        <module>finance-tools</module>
         <module>gateway</module>
         <module>demo-agent</module>
     </modules>

@@ -54,40 +54,40 @@ class AuditTrailTest extends GatewayIntegrationTest {
 
     @Test
     void aDeniedCallIsRecordedWithItsRuleAndReason() {
-        callAs("nurse.salma", "get_staff_salaries", Map.of());
+        callAs("accountant.salma", "get_employee_salaries", Map.of());
 
-        AuditRecord r = latestFor("nurse.salma");
-        assertThat(r.entry().tool()).isEqualTo("get_staff_salaries");
+        AuditRecord r = latestFor("accountant.salma");
+        assertThat(r.entry().tool()).isEqualTo("get_employee_salaries");
         assertThat(r.entry().decision()).isEqualTo("DENY");
         assertThat(r.entry().ruleId()).isEqualTo("salaries-everyone-else");
         assertThat(r.entry().reason()).contains("restricted to HR");
-        assertThat(r.entry().role()).isEqualTo("NURSE");
+        assertThat(r.entry().role()).isEqualTo("ACCOUNTANT");
         assertThat(r.entry().latencyMs()).isNotNull();
     }
 
     @Test
     void anAllowedAndMaskedCallIsRecordedToo() {
-        callAs("nurse.hajar", "search_patients", Map.of("name", "Salma", "limit", 3));
+        callAs("accountant.hajar", "search_suppliers", Map.of("name", "Salma", "limit", 3));
 
-        AuditRecord r = latestFor("nurse.hajar");
+        AuditRecord r = latestFor("accountant.hajar");
         assertThat(r.entry().decision()).isEqualTo("MASK");
-        assertThat(r.entry().ruleId()).isEqualTo("patients-nurse");
+        assertThat(r.entry().ruleId()).isEqualTo("suppliers-accountant");
         // The searched name is personal data: only its end is kept in the log.
         assertThat(r.entry().arguments()).contains("\"name\":\"***ma\"").doesNotContain("Salma");
     }
 
     @Test
     void validationRefusalsAreRecordedAsWell() {
-        callAs("dr.tazi", "get_patient_record", Map.of("patientId", "abc"));
+        callAs("fm.tazi", "get_supplier_record", Map.of("supplierId", "abc"));
 
-        AuditRecord r = latestFor("dr.tazi");
+        AuditRecord r = latestFor("fm.tazi");
         assertThat(r.entry().decision()).isEqualTo("DENY");
         assertThat(r.entry().ruleId()).isEqualTo("validation");
     }
 
     @Test
     void theChainVerifies() {
-        callAs("hr.imane", "get_staff_directory", Map.of());
+        callAs("hr.imane", "get_employee_directory", Map.of());
 
         AuditLog.Verification v = audit.verify();
 
@@ -97,7 +97,7 @@ class AuditTrailTest extends GatewayIntegrationTest {
 
     @Test
     void theDatabaseRefusesUpdatesAndDeletes() {
-        callAs("hr.imane", "get_staff_directory", Map.of());
+        callAs("hr.imane", "get_employee_directory", Map.of());
 
         assertThatThrownBy(() -> gatewayDb.update("UPDATE audit_event SET reason = 'x' WHERE seq = 1"))
             .rootCause().hasMessageContaining("ORA-20001");
@@ -107,9 +107,9 @@ class AuditTrailTest extends GatewayIntegrationTest {
 
     @Test
     void editingAnOldRecordBreaksTheChainAtThatRecord() {
-        callAs("dr.amrani", "get_staff_directory", Map.of());
-        callAs("dr.amrani", "get_staff_salaries", Map.of());
-        long target = latestFor("dr.amrani").seq() - 1;
+        callAs("fm.amrani", "get_employee_directory", Map.of());
+        callAs("fm.amrani", "get_employee_salaries", Map.of());
+        long target = latestFor("fm.amrani").seq() - 1;
         String original = gatewayDb.queryForObject("SELECT reason FROM audit_event WHERE seq = ?", String.class, target);
 
         // Someone with DBA rights turns the trigger off and rewrites history.
@@ -130,10 +130,10 @@ class AuditTrailTest extends GatewayIntegrationTest {
 
     @Test
     void deletingARecordIsDetected() {
-        callAs("dr.amrani", "get_staff_directory", Map.of());
-        long target = latestFor("dr.amrani").seq();
+        callAs("fm.amrani", "get_employee_directory", Map.of());
+        long target = latestFor("fm.amrani").seq();
         // Add one more record after it, so the deleted one is in the middle of the chain.
-        callAs("hr.imane", "get_staff_directory", Map.of());
+        callAs("hr.imane", "get_employee_directory", Map.of());
 
         // Keep an exact copy inside Oracle, to put the row back afterwards.
         gatewayDb.execute("CREATE TABLE audit_event_backup AS SELECT * FROM audit_event WHERE seq = " + target);
@@ -159,7 +159,7 @@ class AuditTrailTest extends GatewayIntegrationTest {
         ExecutorService pool = Executors.newFixedThreadPool(8);
         try {
             List<Future<AuditRecord>> writes = IntStream.range(0, 40).mapToObj(i -> pool.submit(() -> audit.record(
-                new AuditEntry(AuditEntry.TOOL_CALL, "load-" + i, "load.test", "ADMIN", "get_staff_directory",
+                new AuditEntry(AuditEntry.TOOL_CALL, "load-" + i, "load.test", "ADMIN", "get_employee_directory",
                     "{}", "ALLOW", "directory-everyone", "parallel write " + i, 1L, null, null)))).toList();
             for (Future<AuditRecord> w : writes) {
                 w.get();

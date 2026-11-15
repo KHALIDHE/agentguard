@@ -25,17 +25,17 @@ import net.sf.jsqlparser.util.TablesNamesFinder;
  * used to hide content), SELECT *, FOR UPDATE, database links, system views.
  * The accepted query is wrapped so that a row limit always applies.
  *
- * Behind this guard, the hospital service also runs the query inside an
+ * Behind this guard, the finance service also runs the query inside an
  * Oracle read-only transaction, so a write that slipped through would fail.
  */
 public final class SqlGuard {
 
-    /** Allowed tables and the columns that may be read from each. No names, identity, contact, diagnosis or salary. */
+    /** Allowed tables and the columns that may be read from each. No names, identity, contact, iban or salary. */
     static final Map<String, Set<String>> ALLOWED = Map.of(
         "DEPARTMENT", Set.of("ID", "CODE", "NAME"),
-        "STAFF", Set.of("ID", "DEPARTMENT_ID", "ROLE", "HIRED_ON"),
-        "PATIENT", Set.of("ID", "DEPARTMENT_ID", "DOCTOR_ID", "ADMITTED_ON"),
-        "APPOINTMENT", Set.of("ID", "PATIENT_ID", "DOCTOR_ID", "DEPARTMENT_ID", "SCHEDULED_AT", "STATUS"));
+        "EMPLOYEE", Set.of("ID", "DEPARTMENT_ID", "ROLE", "HIRED_ON"),
+        "SUPPLIER", Set.of("ID", "DEPARTMENT_ID", "MANAGER_ID", "ONBOARDED_ON"),
+        "INVOICE", Set.of("ID", "SUPPLIER_ID", "MANAGER_ID", "DEPARTMENT_ID", "DUE_AT", "AMOUNT_MAD", "STATUS"));
 
     static final Set<String> ALLOWED_FUNCTIONS = Set.of(
         "COUNT", "SUM", "AVG", "MIN", "MAX", "ROUND", "TRUNC", "UPPER", "LOWER", "NVL", "COALESCE", "TO_CHAR");
@@ -110,14 +110,14 @@ public final class SqlGuard {
         return new Result(true, null, limited);
     }
 
-    /** Accepts TABLE or HOSPITAL.TABLE; anything else (SYS.X, other schemas) returns null. */
+    /** Accepts TABLE or FINANCE.TABLE; anything else (SYS.X, other schemas) returns null. */
     private static String unqualified(String name) {
         String n = name.toUpperCase(Locale.ROOT).replace("\"", "");
         int dot = n.lastIndexOf('.');
         if (dot < 0) {
             return n;
         }
-        return n.substring(0, dot).equals("HOSPITAL") ? n.substring(dot + 1) : null;
+        return n.substring(0, dot).equals("FINANCE") ? n.substring(dot + 1) : null;
     }
 
     /** Walks the whole statement and records every column, function and alias it uses. */

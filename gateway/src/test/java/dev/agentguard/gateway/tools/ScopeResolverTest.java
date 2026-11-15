@@ -11,36 +11,36 @@ import org.junit.jupiter.api.Test;
 
 class ScopeResolverTest {
 
-    private static final ToolSchema SEARCH = ToolCatalog.find("search_patients").orElseThrow();
-    private static final ToolSchema DIRECTORY = ToolCatalog.find("get_staff_directory").orElseThrow();
+    private static final ToolSchema SEARCH = ToolCatalog.find("search_suppliers").orElseThrow();
+    private static final ToolSchema DIRECTORY = ToolCatalog.find("get_employee_directory").orElseThrow();
 
     @Test
     void departmentComesFromTheIdentity() {
-        UserIdentity nurse = new UserIdentity(1, "n", Role.NURSE, "CARDIO", null);
+        UserIdentity accountant = new UserIdentity(1, "n", Role.ACCOUNTANT, "ACCT", null);
 
-        Map<String, Object> args = ScopeResolver.apply(RowScope.SAME_DEPARTMENT, nurse, SEARCH, Map.of("name", "a"));
+        Map<String, Object> args = ScopeResolver.apply(RowScope.SAME_DEPARTMENT, accountant, SEARCH, Map.of("name", "a"));
 
-        assertThat(args).containsEntry("scopeDepartment", "CARDIO").containsEntry("name", "a");
+        assertThat(args).containsEntry("scopeDepartment", "ACCT").containsEntry("name", "a");
     }
 
     @Test
-    void ownPatientsUsesTheStaffId() {
-        UserIdentity doctor = new UserIdentity(1, "d", Role.DOCTOR, "CARDIO", 7L);
+    void ownSuppliersUsesTheEmployeeId() {
+        UserIdentity manager = new UserIdentity(1, "d", Role.FINANCE_MANAGER, "ACCT", 7L);
 
-        assertThat(ScopeResolver.apply(RowScope.OWN_PATIENTS, doctor, SEARCH, Map.of()))
-            .containsEntry("scopeDoctorId", 7L);
+        assertThat(ScopeResolver.apply(RowScope.OWN_SUPPLIERS, manager, SEARCH, Map.of()))
+            .containsEntry("scopeManagerId", 7L);
     }
 
     @Test
     void failsClosedWhenTheScopeCannotBeApplied() {
         UserIdentity hr = new UserIdentity(1, "h", Role.HR, null, null);
-        UserIdentity nurse = new UserIdentity(1, "n", Role.NURSE, "CARDIO", null);
+        UserIdentity accountant = new UserIdentity(1, "n", Role.ACCOUNTANT, "ACCT", null);
 
         assertThatThrownBy(() -> ScopeResolver.apply(RowScope.SAME_DEPARTMENT, hr, SEARCH, Map.of()))
             .hasMessageContaining("no department");
-        assertThatThrownBy(() -> ScopeResolver.apply(RowScope.OWN_PATIENTS, nurse, SEARCH, Map.of()))
-            .hasMessageContaining("not linked to a staff record");
-        assertThatThrownBy(() -> ScopeResolver.apply(RowScope.SAME_DEPARTMENT, nurse, DIRECTORY, Map.of()))
+        assertThatThrownBy(() -> ScopeResolver.apply(RowScope.OWN_SUPPLIERS, accountant, SEARCH, Map.of()))
+            .hasMessageContaining("not linked to a employee record");
+        assertThatThrownBy(() -> ScopeResolver.apply(RowScope.SAME_DEPARTMENT, accountant, DIRECTORY, Map.of()))
             .hasMessageContaining("cannot be limited");
     }
 }

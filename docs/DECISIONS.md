@@ -33,8 +33,8 @@ One entry per decision: context, choice, reason.
 - **Reason:** the identity is passed explicitly with each call. Nothing depends on which thread runs the handler, and a call without an identity is refused instead of running as nobody.
 
 ## D7. A service token between the gateway and the tools
-- **Context:** if an agent could reach the hospital tools directly, the gateway would be optional.
-- **Choice:** the tools service refuses any MCP request without `Authorization: Bearer <HOSPITAL_SERVICE_TOKEN>`, compared in constant time, and refuses everything when the token is not configured. Only the gateway holds the token.
+- **Context:** if an agent could reach the finance tools directly, the gateway would be optional.
+- **Choice:** the tools service refuses any MCP request without `Authorization: Bearer <FINANCE_SERVICE_TOKEN>`, compared in constant time, and refuses everything when the token is not configured. Only the gateway holds the token.
 - **Reason:** the gateway becomes the only door. In production this would be mTLS or a private network as well; the shared token keeps the demo simple and testable.
 
 ## D8. Phase 2 republishes the upstream schemas, minus scope parameters
@@ -54,7 +54,7 @@ One entry per decision: context, choice, reason.
 
 ## D11. Masking uses allow-lists where it can, and fails closed
 - **Context:** results come back as JSON rows from the upstream.
-- **Choice:** a mask profile either keeps only listed fields (reception) or removes and partly hides listed ones (nurse). If a result is not JSON, or a part is not text, the whole result is withheld. `structuredContent` is dropped from masked results.
+- **Choice:** a mask profile either keeps only listed fields (clerk) or removes and partly hides listed ones (accountant). If a result is not JSON, or a part is not text, the whole result is withheld. `structuredContent` is dropped from masked results.
 - **Reason:** an allow-list hides any column added upstream later. Withholding on doubt is the only safe failure: returning the raw result would bypass the policy.
 
 ## D12. run_query is parsed, restricted and limited

@@ -1,9 +1,9 @@
 package dev.agentguard.gateway.auth;
 
 public enum Role {
-    DOCTOR,
-    NURSE,
-    RECEPTIONIST,
+    FINANCE_MANAGER,
+    ACCOUNTANT,
+    CLERK,
     HR,
     ADMIN
 }

@@ -67,8 +67,8 @@ public class AuthController {
         if (user.getDepartment() != null) {
             claims.claim(UserIdentity.CLAIM_DEPARTMENT, user.getDepartment());
         }
-        if (user.getHospitalStaffId() != null) {
-            claims.claim(UserIdentity.CLAIM_STAFF_ID, user.getHospitalStaffId());
+        if (user.getFinanceEmployeeId() != null) {
+            claims.claim(UserIdentity.CLAIM_EMPLOYEE_ID, user.getFinanceEmployeeId());
         }
         String token = encoder.encode(JwtEncoderParameters.from(
             JwsHeader.with(MacAlgorithm.HS256).build(), claims.build())).getTokenValue();

@@ -29,11 +29,11 @@ public final class ScopeResolver {
                     tool.name() + " cannot be limited to a department");
                 out.put(ToolCatalog.SCOPE_DEPARTMENT, user.department());
             }
-            case OWN_PATIENTS -> {
-                require(user.staffId() != null, "the user is not linked to a staff record");
-                require(tool.scopeParams().contains(ToolCatalog.SCOPE_DOCTOR),
-                    tool.name() + " cannot be limited to a doctor's patients");
-                out.put(ToolCatalog.SCOPE_DOCTOR, user.staffId());
+            case OWN_SUPPLIERS -> {
+                require(user.employeeId() != null, "the user is not linked to a employee record");
+                require(tool.scopeParams().contains(ToolCatalog.SCOPE_MANAGER),
+                    tool.name() + " cannot be limited to a manager's suppliers");
+                out.put(ToolCatalog.SCOPE_MANAGER, user.employeeId());
             }
         }
         return out;

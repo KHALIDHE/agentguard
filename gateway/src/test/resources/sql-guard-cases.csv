@@ -1,32 +1,32 @@
 expected|reason fragment|sql
 ACCEPT||SELECT id, code, name FROM department
-ACCEPT||SELECT department_id, COUNT(*) AS patients FROM patient GROUP BY department_id
-ACCEPT||SELECT department_id, COUNT(*) AS n FROM patient GROUP BY department_id ORDER BY n DESC
-ACCEPT||SELECT d.code, COUNT(a.id) FROM appointment a JOIN department d ON d.id = a.department_id WHERE a.status = 'CANCELLED' GROUP BY d.code
-ACCEPT||SELECT TRUNC(scheduled_at) AS day, COUNT(*) AS total FROM appointment GROUP BY TRUNC(scheduled_at)
-ACCEPT||SELECT role, COUNT(*) FROM staff GROUP BY role
-ACCEPT||SELECT id FROM hospital.patient WHERE admitted_on > DATE '2026-01-01'
-ACCEPT||select id from patient;
-ACCEPT||SELECT department_id FROM patient UNION SELECT department_id FROM appointment
-ACCEPT||SELECT p.department_id, MAX(p.admitted_on) FROM patient p GROUP BY p.department_id
-REFUSE|only SELECT|DELETE FROM patient
-REFUSE|only SELECT|UPDATE staff SET role = 'ADMIN'
+ACCEPT||SELECT department_id, COUNT(*) AS suppliers FROM supplier GROUP BY department_id
+ACCEPT||SELECT department_id, COUNT(*) AS n FROM supplier GROUP BY department_id ORDER BY n DESC
+ACCEPT||SELECT d.code, COUNT(a.id) FROM invoice a JOIN department d ON d.id = a.department_id WHERE a.status = 'CANCELLED' GROUP BY d.code
+ACCEPT||SELECT TRUNC(due_at) AS day, COUNT(*) AS total FROM invoice GROUP BY TRUNC(due_at)
+ACCEPT||SELECT role, COUNT(*) FROM employee GROUP BY role
+ACCEPT||SELECT id FROM finance.supplier WHERE onboarded_on > DATE '2026-01-01'
+ACCEPT||select id from supplier;
+ACCEPT||SELECT department_id FROM supplier UNION SELECT department_id FROM invoice
+ACCEPT||SELECT p.department_id, MAX(p.onboarded_on) FROM supplier p GROUP BY p.department_id
+REFUSE|only SELECT|DELETE FROM supplier
+REFUSE|only SELECT|UPDATE employee SET role = 'ADMIN'
 REFUSE|only SELECT|INSERT INTO department (code, name) VALUES ('X', 'Y')
-REFUSE|only SELECT|DROP TABLE patient
-REFUSE|only SELECT|TRUNCATE TABLE appointment
-REFUSE|only SELECT|GRANT SELECT ON patient TO public
-REFUSE|exactly one statement|SELECT id FROM patient; DROP TABLE patient
-REFUSE|exactly one statement|SELECT id FROM patient; SELECT id FROM staff
-REFUSE|comments|SELECT id FROM patient -- WHERE department_id = 1
-REFUSE|comments|SELECT id /* hidden */ FROM patient
-REFUSE|comments|SELECT /*+ FULL(p) */ id FROM patient p
-REFUSE|column SALARY_MAD|SELECT salary_mad FROM staff
-REFUSE|column DIAGNOSIS|SELECT diagnosis FROM patient
-REFUSE|column NATIONAL_ID|SELECT id FROM patient WHERE national_id = 'ZZ100001'
-REFUSE|column FULL_NAME|SELECT full_name FROM patient
-REFUSE|column NOTES|SELECT notes FROM appointment
-REFUSE|SELECT *|SELECT * FROM patient
-REFUSE|SELECT t.*|SELECT p.* FROM patient p
+REFUSE|only SELECT|DROP TABLE supplier
+REFUSE|only SELECT|TRUNCATE TABLE invoice
+REFUSE|only SELECT|GRANT SELECT ON supplier TO public
+REFUSE|exactly one statement|SELECT id FROM supplier; DROP TABLE supplier
+REFUSE|exactly one statement|SELECT id FROM supplier; SELECT id FROM employee
+REFUSE|comments|SELECT id FROM supplier -- WHERE department_id = 1
+REFUSE|comments|SELECT id /* hidden */ FROM supplier
+REFUSE|comments|SELECT /*+ FULL(p) */ id FROM supplier p
+REFUSE|column SALARY_MAD|SELECT salary_mad FROM employee
+REFUSE|column IBAN|SELECT iban FROM supplier
+REFUSE|column TAX_ID|SELECT id FROM supplier WHERE tax_id = 'ZZ100001'
+REFUSE|column FULL_NAME|SELECT full_name FROM supplier
+REFUSE|column NOTES|SELECT notes FROM invoice
+REFUSE|SELECT *|SELECT * FROM supplier
+REFUSE|SELECT t.*|SELECT p.* FROM supplier p
 REFUSE|table DOCUMENT|SELECT id FROM document
 REFUSE|table APP_USER|SELECT id FROM app_user
 REFUSE|table SYS.DBA_USERS|SELECT username FROM sys.dba_users
@@ -34,11 +34,11 @@ REFUSE|table ALL_TABLES|SELECT table_name FROM all_tables
 REFUSE|table V$SESSION|SELECT sid FROM v$session
 REFUSE|table AGENTGUARD.APP_USER|SELECT id FROM agentguard.app_user
 REFUSE|table DUAL|SELECT 1 FROM dual
-REFUSE|column VALUE|SELECT dbms_random.value FROM patient
-REFUSE|function DBMS_RANDOM.VALUE|SELECT dbms_random.value() AS r FROM patient
+REFUSE|column VALUE|SELECT dbms_random.value FROM supplier
+REFUSE|function DBMS_RANDOM.VALUE|SELECT dbms_random.value() AS r FROM supplier
 REFUSE|function SYS_CONTEXT|SELECT SYS_CONTEXT('USERENV', 'SESSION_USER') AS u FROM department
 REFUSE|function UTL_HTTP.REQUEST|SELECT utl_http.request('http://evil') AS x FROM department
-REFUSE|FOR UPDATE|SELECT id FROM patient FOR UPDATE
-REFUSE|database links|SELECT id FROM patient@remote_db
-REFUSE|could not be parsed|SELEC id FROM patient
+REFUSE|FOR UPDATE|SELECT id FROM supplier FOR UPDATE
+REFUSE|database links|SELECT id FROM supplier@remote_db
+REFUSE|could not be parsed|SELEC id FROM supplier
 REFUSE|empty query|

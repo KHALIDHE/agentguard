@@ -1,0 +1,19 @@
+:80 {
+	encode gzip
+
+	handle /auth/* {
+		reverse_proxy gateway:8080
+	}
+	handle /admin/* {
+		reverse_proxy gateway:8080
+	}
+	handle /agent/* {
+		uri strip_prefix /agent
+		reverse_proxy demo-agent:8082
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

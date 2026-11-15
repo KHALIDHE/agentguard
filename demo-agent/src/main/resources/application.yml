@@ -18,12 +18,16 @@ spring:
           model: ${OPENAI_MODEL:gpt-4o-mini}
     mcp:
       client:
-        enabled: false   # phase 8 connects the agent to the gateway
+        enabled: false   # the agent opens its own connection per request, with the user's token
         streamable-http:
           connections:
             agentguard:
               url: ${GATEWAY_URL:http://localhost:8080}
               endpoint: /mcp
+
+agent:
+  gateway-url: ${GATEWAY_URL:http://localhost:8080}
+  max-chats-per-hour: ${MAX_CHATS_PER_HOUR:40}
 
 server:
   port: 8082

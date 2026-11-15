@@ -15,8 +15,8 @@ class ToolRegistrarTest {
     @Test
     void publishedSchemaIsTheGatewaysNotTheUpstreams() {
         McpSchema.Tool upstream = McpSchema.Tool.builder()
-            .name("search_patients")
-            .description("Search patients")
+            .name("search_suppliers")
+            .description("Search suppliers")
             .inputSchema(Map.of(
                 "type", "object",
                 "properties", Map.of(
@@ -26,9 +26,9 @@ class ToolRegistrarTest {
                 "required", List.of("name", "scopeDepartment")))
             .build();
 
-        McpSchema.Tool published = ToolRegistrar.published(upstream, ToolCatalog.find("search_patients").orElseThrow());
+        McpSchema.Tool published = ToolRegistrar.published(upstream, ToolCatalog.find("search_suppliers").orElseThrow());
 
-        assertThat(published.description()).isEqualTo("Search patients");
+        assertThat(published.description()).isEqualTo("Search suppliers");
         assertThat(GatewayToolHandler.publishedParameters(published)).containsOnly("name", "limit");
         assertThat(published.inputSchema()).containsEntry("additionalProperties", false);
     }

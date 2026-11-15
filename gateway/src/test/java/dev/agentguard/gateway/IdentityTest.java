@@ -28,15 +28,15 @@ class IdentityTest extends GatewayIntegrationTest {
 
     @Test
     void demoUsersCanLogIn() {
-        assertThat(login("nurse.salma")).isNotBlank();
-        assertThat(login("dr.amrani")).isNotBlank();
+        assertThat(login("accountant.salma")).isNotBlank();
+        assertThat(login("fm.amrani")).isNotBlank();
     }
 
     @Test
     void wrongPasswordIs401() {
         int status = RestClient.create("http://localhost:" + port).post().uri("/auth/login")
             .contentType(MediaType.APPLICATION_JSON)
-            .body(Map.of("username", "nurse.salma", "password", "wrong-password"))
+            .body(Map.of("username", "accountant.salma", "password", "wrong-password"))
             .exchange((req, res) -> res.getStatusCode().value());
         assertThat(status).isEqualTo(401);
     }
@@ -66,7 +66,7 @@ class IdentityTest extends GatewayIntegrationTest {
 
     @Test
     void mcpWithValidTokenConnects() {
-        try (var client = agent(login("nurse.salma"))) {
+        try (var client = agent(login("accountant.salma"))) {
             assertThat(client.ping()).isNotNull();
         }
     }

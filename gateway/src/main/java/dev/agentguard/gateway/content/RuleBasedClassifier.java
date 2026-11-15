@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 /**
  * Simple, explainable rules: each one has a name, and the flag in the audit
  * log says exactly which rule matched. Patterns are kept narrow to limit
- * false alarms on ordinary hospital documents.
+ * false alarms on ordinary finance documents.
  */
 @Component
 public class RuleBasedClassifier implements ContentClassifier {
@@ -28,9 +28,9 @@ public class RuleBasedClassifier implements ContentClassifier {
         RULES.put("addressed-to-ai", Pattern.compile(
             "\\b(the|this|you,?)\\s*(ai|assistant|agent|model|chatbot)\\b[^.\\n]{0,30}\\b(must|should|shall|needs? to|has to)\\b", FLAGS));
         RULES.put("tool-invocation", Pattern.compile(
-            "\\b(export_report|get_staff_salaries|run_query|cancel_appointments|update_appointment|get_patient_record|search_patients)\\b", FLAGS));
+            "\\b(export_report|get_employee_salaries|run_query|cancel_invoices|update_invoice|get_supplier_record|search_suppliers)\\b", FLAGS));
         RULES.put("authority-claim", Pattern.compile(
-            "\\b(the\\s+user\\s+is\\s+(actually|really|now)\\s+(an?\\s+)?(admin|administrator|hr|doctor))\\b", FLAGS));
+            "\\b(the\\s+user\\s+is\\s+(actually|really|now)\\s+(an?\\s+)?(admin|administrator|hr|manager))\\b", FLAGS));
         RULES.put("exfiltration", Pattern.compile(
             "\\b(send|forward|email|post|upload)\\s+(the\\s+|all\\s+|every\\s+)?(results?|data|records|list|export)\\b[^.\\n]{0,40}\\bto\\b", FLAGS));
         RULES.put("role-override", Pattern.compile(

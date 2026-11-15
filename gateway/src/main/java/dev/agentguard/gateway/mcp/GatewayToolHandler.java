@@ -39,7 +39,7 @@ import org.springframework.stereotype.Component;
  *   2. validation   arguments must match the gateway's strict schema
  *   3. SQL guard    run_query must be one safe SELECT; a row limit is forced
  *   4. policy       first matching rule decides, deny by default
- *   5. row scope    department / doctor limits are added from the identity
+ *   5. row scope    department / manager limits are added from the identity
  *      approval     REQUIRE_APPROVAL stores the scoped call and stops here
  *   6. upstream     the call is forwarded with the service token
  *   7. masking      sensitive fields are removed before the agent sees them

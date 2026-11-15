@@ -22,7 +22,7 @@ class PolicyParserTest {
         rules:
           - id: r1
             priority: 1
-            roles: [NURSE]
+            roles: [ACCOUNTANT]
             tools: [get_document]
             decision: ALLOW
             reason: ok
@@ -33,7 +33,7 @@ class PolicyParserTest {
         PolicyRule rule = parse(VALID_RULE).get(0);
 
         assertThat(rule.id()).isEqualTo("r1");
-        assertThat(rule.roles()).containsExactly(Role.NURSE);
+        assertThat(rule.roles()).containsExactly(Role.ACCOUNTANT);
         assertThat(rule.scope()).isEqualTo(RowScope.NONE);
     }
 
@@ -54,8 +54,8 @@ class PolicyParserTest {
     void typosStopTheGateway() {
         assertThatThrownBy(() -> parse(VALID_RULE.replace("get_document", "get_documents")))
             .hasMessageContaining("unknown tool get_documents");
-        assertThatThrownBy(() -> parse(VALID_RULE.replace("NURSE", "NURS")))
-            .hasMessageContaining("unknown role NURS");
+        assertThatThrownBy(() -> parse(VALID_RULE.replace("ACCOUNTANT", "ACCOUNTAN")))
+            .hasMessageContaining("unknown role ACCOUNTAN");
         assertThatThrownBy(() -> parse(VALID_RULE.replace("ALLOW", "ALOW")))
             .hasMessageContaining("unknown decision ALOW");
         assertThatThrownBy(() -> parse(VALID_RULE.replace("reason: ok", "reason: ok\n    rol: [HR]")))
@@ -85,13 +85,13 @@ class PolicyParserTest {
     @Test
     void conditionsCombine() {
         Condition c = PolicyParser.condition(Map.of("all", List.of(
-            Map.of("argument", "reportType", "in", List.of("APPOINTMENTS")),
+            Map.of("argument", "reportType", "in", List.of("INVOICES")),
             Map.of("not", Map.of("argument", "limit", "gt", 100)))), "t");
 
-        UserIdentity u = new UserIdentity(1, "u", Role.DOCTOR, "CARDIO", 1L);
-        assertThat(c.test(ToolCallContext.of(u, "export_report", Map.of("reportType", "APPOINTMENTS", "limit", 50)))).isTrue();
-        assertThat(c.test(ToolCallContext.of(u, "export_report", Map.of("reportType", "APPOINTMENTS", "limit", 500)))).isFalse();
-        assertThat(c.test(ToolCallContext.of(u, "export_report", Map.of("reportType", "PATIENTS")))).isFalse();
-        assertThat(c.describe()).isEqualTo("(reportType in [APPOINTMENTS]) and (not (limit > 100.0))");
+        UserIdentity u = new UserIdentity(1, "u", Role.FINANCE_MANAGER, "ACCT", 1L);
+        assertThat(c.test(ToolCallContext.of(u, "export_report", Map.of("reportType", "INVOICES", "limit", 50)))).isTrue();
+        assertThat(c.test(ToolCallContext.of(u, "export_report", Map.of("reportType", "INVOICES", "limit", 500)))).isFalse();
+        assertThat(c.test(ToolCallContext.of(u, "export_report", Map.of("reportType", "SUPPLIERS")))).isFalse();
+        assertThat(c.describe()).isEqualTo("(reportType in [INVOICES]) and (not (limit > 100.0))");
     }
 }

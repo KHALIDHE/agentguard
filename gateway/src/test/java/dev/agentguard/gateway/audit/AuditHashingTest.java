@@ -10,7 +10,7 @@ class AuditHashingTest {
     private static final Instant T = Instant.parse("2026-11-14T10:15:30.123Z");
 
     private static AuditEntry entry(String reason) {
-        return new AuditEntry("TOOL_CALL", "r1", "nurse.salma", "NURSE", "get_staff_salaries", "{}",
+        return new AuditEntry("TOOL_CALL", "r1", "accountant.salma", "ACCOUNTANT", "get_employee_salaries", "{}",
             "DENY", "salaries-everyone-else", reason, 3L, null, null);
     }
 
